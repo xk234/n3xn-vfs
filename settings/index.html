@@ -1,0 +1,40 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>n3xn Settings v3.0.0-beta</title>
+  <meta name="theme-color" content="#0a0a0f" />
+  <script src="../js/anti-blocksi.js" data-n3xn="safe"></script>
+  <link rel="stylesheet" href="../css/theme.css" />
+  <link rel="stylesheet" href="../css/app.css" />
+  <style>
+    body { margin: 0; background: var(--bg, #050508); color: var(--text, #e8e8f0); font-family: system-ui, sans-serif; }
+    .settings-wrap { max-width: 960px; margin: 0 auto; padding: 1.25rem; }
+    .settings-section { margin: 1.5rem 0; padding: 1rem; border: 1px solid var(--border, #1a1a28); border-radius: 8px; background: var(--panel, #0f0f16); }
+    .theme-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px; }
+    .theme-swatch { background: var(--bg2, #0a0a0f); color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: 10px 8px; cursor: pointer; }
+    .theme-swatch:hover { border-color: var(--accent, #fff); }
+    .form-group { margin: 8px 0; display: flex; flex-direction: column; gap: 4px; }
+    .form-group input, .form-group select { background: var(--bg); color: var(--text); border: 1px solid var(--border); padding: 8px; border-radius: 4px; }
+    .btn { display: inline-block; margin: 4px 6px 4px 0; padding: 8px 12px; border-radius: 6px; border: 1px solid var(--border); background: var(--bg2); color: var(--text); text-decoration: none; cursor: pointer; }
+    .btn.primary { background: var(--accent, #fff); color: #000; border-color: transparent; }
+    .muted { opacity: .75; font-size: 13px; }
+    label { display: block; margin: 6px 0; }
+  </style>
+</head>
+<body data-n3xn="safe">
+  <div id="settings-root"></div>
+  <script type="module">
+    import { renderSettingsUI, registerMonacoThemesFromCatalog } from "../js/settings-app.js";
+    import { loadSavedAppTheme } from "../js/themes-catalog.js";
+    import { applyVersionToDom } from "../js/version.js";
+    loadSavedAppTheme();
+    applyVersionToDom();
+    renderSettingsUI(document.getElementById("settings-root"));
+    // Monaco may not be on this page — themes still apply to CSS vars
+    try { registerMonacoThemesFromCatalog(); } catch (_) {}
+  </script>
+</body>
+</html>

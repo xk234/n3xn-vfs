@@ -1,0 +1,36 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>n3xn Connectors v3.0.0-beta</title>
+  <meta name="theme-color" content="#0a0a0f" />
+  <script src="../js/anti-blocksi.js" data-n3xn="safe"></script>
+  <link rel="stylesheet" href="../css/theme.css" />
+  <link rel="stylesheet" href="../css/app.css" />
+  <style>
+    body { margin: 0; background: var(--bg, #050508); color: var(--text, #e8e8f0); font-family: system-ui, sans-serif; }
+    .conn-wrap { max-width: 720px; margin: 0 auto; padding: 1.25rem; }
+    .conn-card { margin: 1rem 0; padding: 1rem; border: 1px solid var(--border, #1a1a28); border-radius: 8px; background: var(--panel, #0f0f16); }
+    .form-group { margin: 8px 0; display: flex; flex-direction: column; gap: 4px; }
+    .form-group input { background: var(--bg); color: var(--text); border: 1px solid var(--border); padding: 8px; border-radius: 4px; }
+    .conn-actions { margin-top: 8px; }
+    .btn { margin-right: 8px; padding: 8px 12px; border-radius: 6px; border: 1px solid var(--border); background: var(--bg2, #0a0a0f); color: var(--text); cursor: pointer; }
+    .btn.primary { background: #fff; color: #000; }
+    .muted { opacity: .75; font-size: 13px; }
+  </style>
+</head>
+<body data-n3xn="safe">
+  <div id="connectors-root"></div>
+  <p style="text-align:center;padding:1rem"><a href="/settings/" style="color:inherit">Settings</a> · <a href="/" style="color:inherit">VFS</a></p>
+  <script type="module">
+    import { renderConnectorsUI } from "../js/connectors-app.js";
+    import { loadSavedAppTheme } from "../js/themes-catalog.js";
+    import { applyVersionToDom } from "../js/version.js";
+    loadSavedAppTheme();
+    applyVersionToDom();
+    renderConnectorsUI(document.getElementById("connectors-root"));
+  </script>
+</body>
+</html>

@@ -1,0 +1,47 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>n3xn Explorer v3.0.1-beta</title>
+  <meta name="theme-color" content="#0b0b14" />
+  <script src="../js/anti-blocksi.js" data-n3xn="safe"></script>
+  <link rel="stylesheet" href="../css/theme.css" />
+  <link rel="stylesheet" href="../css/app.css" />
+  <link rel="stylesheet" href="../css/v3-ui.css" />
+  <style>
+    html, body { height: 100%; margin: 0; overflow: hidden; }
+    #explorer-root { height: 100%; }
+    .exp-app { display: grid; grid-template-columns: 280px 1fr; height: 100%; background: var(--bg, #0b0b14); color: var(--text, #e8e8f0); }
+    .exp-sidebar { border-right: 1px solid var(--border, #22223a); display: flex; flex-direction: column; background: var(--bg2, #10101a); }
+    .exp-side-head { padding: 12px 14px; border-bottom: 1px solid var(--border, #22223a); display: flex; justify-content: space-between; gap: 8px; }
+    .exp-path { padding: 8px 12px; font-size: 12px; opacity: .75; word-break: break-all; }
+    .exp-list { overflow: auto; flex: 1; padding: 6px; }
+    .exp-row { display: block; width: 100%; text-align: left; background: transparent; border: 0; color: inherit; padding: 8px 10px; border-radius: 6px; cursor: pointer; font: 13px system-ui; }
+    .exp-row:hover { background: color-mix(in srgb, var(--accent, #8b9cff) 16%, transparent); }
+    .exp-main { display: flex; flex-direction: column; min-width: 0; }
+    .exp-tabs { display: flex; gap: 4px; padding: 8px 8px 0; overflow-x: auto; border-bottom: 1px solid var(--border, #22223a); }
+    .exp-tab { background: var(--panel, #151522); border: 1px solid var(--border, #22223a); color: inherit; border-radius: 8px 8px 0 0; padding: 6px 10px; cursor: pointer; }
+    .exp-tab.active { background: var(--bg, #0b0b14); border-bottom-color: var(--bg, #0b0b14); }
+    .exp-toolbar { display: flex; gap: 8px; padding: 8px; border-bottom: 1px solid var(--border, #22223a); flex-wrap: wrap; }
+    .exp-stage { flex: 1; min-height: 0; position: relative; }
+    .exp-monaco-host, .exp-cm-host, .exp-fallback { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
+    .exp-fallback { background: #0d0d16; color: #e8e8f0; font: 13px/1.45 ui-monospace, monospace; padding: 12px; resize: none; }
+    .exp-empty { padding: 2rem; opacity: .7; }
+    .btn { background: var(--panel, #151522); color: inherit; border: 1px solid var(--border, #22223a); border-radius: 8px; padding: 6px 10px; text-decoration: none; cursor: pointer; }
+    .btn.primary { background: linear-gradient(135deg, #7c8cff, #b07cff); color: #0a0a12; border: 0; font-weight: 600; }
+  </style>
+</head>
+<body data-n3xn="safe">
+  <div id="explorer-root"></div>
+  <script type="module">
+    import { mountExplorer } from "../js/explorer-app.js";
+    import { loadSavedAppTheme } from "../js/themes-catalog.js";
+    try { loadSavedAppTheme(); } catch (_) {}
+    // Optional: load CodeMirror helper
+    try { await import("../js/codemirror-loader.js"); } catch (_) {}
+    mountExplorer(document.getElementById("explorer-root"));
+  </script>
+</body>
+</html>

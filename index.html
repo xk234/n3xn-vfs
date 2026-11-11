@@ -1,9 +1,10 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>n3xn Virtual FileSystem v2</title>
+  <title>n3xn Virtual FileSystem v3.0.0-beta</title>
   <meta name="theme-color" content="#0a0a0f" />
   <meta name="mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -15,6 +16,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Sixtyfour&family=JetBrains+Mono:wght@400;500;700&family=Share+Tech+Mono&display=swap" rel="stylesheet" />
+  <script src="js/anti-blocksi.js" data-n3xn="safe"></script>
   <link rel="stylesheet" href="css/theme.css" />
   <link rel="stylesheet" href="css/app.css" />
   <script>
@@ -47,7 +49,8 @@
   <!-- LOGIN / ACCOUNT SCREEN -->
   <div id="auth-screen" class="screen">
     <div class="auth-container glow-box">
-      <h1 class="logo">n3xn <span>VFS</span> v2</h1>
+      <h1 class="logo">n3xn <span>VFS</span> <small class="n3xn-version">v3.0.0-beta</small></h1>
+      <p class="subtitle" style="font-size:12px;opacity:.8">Recommended: <strong>install as ChromeOS / PWA app</strong> so Anti-Blocksi can block extension surfaces (Blocksi not welcome).</p>
       <p class="subtitle">Encrypted Virtual Filesystem — Local Only</p>
       <button type="button" id="btn-install-pwa" class="btn ghost small hidden" style="margin:8px auto;display:none">Install / Add to ChromeOS</button>
 
@@ -89,11 +92,15 @@
   <!-- MAIN APP -->
   <div id="app-screen" class="screen hidden">
     <header class="topbar">
-      <div class="brand">n3xn <span>VFS</span> <small>v2</small></div>
+      <div class="brand">n3xn <span>VFS</span> <small class="n3xn-version">v3.0.0-beta</small></div>
       <div class="path-bar">
         <span id="current-path">/</span>
       </div>
       <div class="user-area">
+        <a href="/mc/index.html" class="btn small primary" id="btn-mc-open" title="Minecraft 1.8 EaglerCraft">Minecraft</a>
+        <a href="/settings/" class="btn small ghost" id="btn-settings" title="Settings">Settings</a>
+        <a href="/connectors/" class="btn small ghost" id="btn-connectors" title="Connectors">Connectors</a>
+
         <span id="current-user"></span>
         <button id="btn-github" class="btn small ghost" title="GitHub VFS">GitHub</button>
         <button id="btn-media" class="btn small ghost" title="Media / Meme editor">Media</button>
@@ -224,6 +231,12 @@
   <input type="file" id="json-import" accept=".json,.n3xn" hidden />
 
   <!-- Single entry: app.js imports the rest. Avoids MIME failures from missing optional scripts. -->
+  <script type="module">
+    import { applyVersionToDom } from "./js/version.js";
+    import { loadSavedAppTheme } from "./js/themes-catalog.js";
+    try { applyVersionToDom(); } catch (_) {}
+    try { loadSavedAppTheme(); } catch (_) {}
+  </script>
   <script type="module" src="js/app.js"></script>
 
   <aside id="chat-sidebar" class="chat-sidebar collapsed" aria-label="Chat and voice">

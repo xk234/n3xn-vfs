@@ -1,30 +1,46 @@
-
 /**
- * n3xn VFS v3.0.0-beta — Anti-Blocksi / anti-extension surface cloak
+ * n3xn VFS v3.0.1-beta — Anti-Blocksi (iframe cloak, NOT app HTML snapshot)
  *
- * Activates only when:
- *  - display-mode: standalone / minimal-ui / fullscreen (installed PWA / ChromeOS app), OR
- *  - navigator.standalone, OR explicit ?n3xn_app=1
- *  - top frame only (not nested iframe unless forced)
+ * Why iframe (not blob-of-app-HTML):
+ *  Snapshotting the live app into a blob document breaks modules, SW, auth, IDB, runners.
  *
- * On detect of extension-injected DOM (blocksi, chrome-extension, securly, goguardian, …):
- *  - location.replace(blob: text/html) of a cloaked mirror of current document
- *  - top URL becomes blob: (not http/https) so extension page filters lose the HTTPS surface
- *  - title + favicon stay synced via MutationObserver
- *  - beforeunload soft-resist accidental close
- *
- * Self-guards: never re-cloak if already blob:, session flag, or own script markers.
- * Recommended: install as app so extensions cannot easily observe the screen.
+ * Model:
+ *  - Only in installed-app / standalone / ?n3xn_app=1
+ *  - Top frame only; skip if already framed (?n3xn_framed=1 or parent marker)
+ *  - On hostile inject (Blocksi / chrome-extension / securly / …):
+ *      location.replace(blob:) where blob is a *thin shell* that hosts
+ *      <iframe src="real-app-url?n3xn_framed=1"> with FULL allow=, NO sandbox
+ *  - Top URL becomes blob: (not http/https). Real app keeps working inside iframe.
+ *  - Title/favicon of shell stay synced from iframe when possible.
  */
-(function n3xnAntiBlocksi() {
+
+(function n3xnAntiBlocksiIframe() {
   "use strict";
   if (typeof window === "undefined" || typeof document === "undefined") return;
 
   const FLAG = "__n3xnCloaked";
-  const SS_KEY = "n3xn_cloak_active";
+  const FRAMED_PARAM = "n3xn_framed";
   const SCRIPT_MARK = "anti-blocksi";
 
   if (window[FLAG]) return;
+
+  // Already inside our cloak iframe — do nothing
+  try {
+    const q = new URLSearchParams(location.search);
+    if (q.get(FRAMED_PARAM) === "1") {
+      window[FLAG] = true;
+      window.__n3xnFramed = true;
+      return;
+    }
+  } catch (_) {}
+
+  try {
+    if (window.top !== window.self) {
+      // Nested frame that is not our framed app — stay idle
+      return;
+    }
+  } catch (_) {}
+
   try {
     if (location.protocol === "blob:") {
       window[FLAG] = true;
@@ -32,26 +48,24 @@
     }
   } catch (_) {}
 
-  // Only top frame by default
-  try {
-    if (window.top !== window.self) return;
-  } catch (_) {
-    // cross-origin top — still run
-  }
+  const ALLOW_ALL =
+    "accelerometer; ambient-light-sensor; autoplay; battery; bluetooth; camera; " +
+    "clipboard-read; clipboard-write; display-capture; encrypted-media; fullscreen; " +
+    "gamepad; geolocation; gyroscope; hid; idle-detection; local-fonts; magnetometer; " +
+    "microphone; midi; payment; picture-in-picture; publickey-credentials-get; " +
+    "screen-wake-lock; serial; speaker-selection; storage-access; usb; " +
+    "web-share; window-management; xr-spatial-tracking";
 
   function isAppMode() {
     try {
       if (new URLSearchParams(location.search).get("n3xn_app") === "1") return true;
     } catch (_) {}
     try {
-      if (window.matchMedia && window.matchMedia("(display-mode: standalone)").matches) return true;
-      if (window.matchMedia && window.matchMedia("(display-mode: minimal-ui)").matches) return true;
-      if (window.matchMedia && window.matchMedia("(display-mode: fullscreen)").matches) return true;
+      if (window.matchMedia("(display-mode: standalone)").matches) return true;
+      if (window.matchMedia("(display-mode: minimal-ui)").matches) return true;
+      if (window.matchMedia("(display-mode: fullscreen)").matches) return true;
     } catch (_) {}
     if (navigator.standalone === true) return true;
-    try {
-      if (document.referrer && document.referrer.indexOf("chrome-extension://") === 0) return false;
-    } catch (_) {}
     return false;
   }
 
@@ -65,12 +79,11 @@
       if (el.tagName === "SCRIPT") {
         const src = el.src || el.getAttribute("src") || "";
         if (src.indexOf(SCRIPT_MARK) !== -1) return false;
-        if (src.indexOf("chrome-extension://") === 0) return true;
-        if (src.indexOf("moz-extension://") === 0) return true;
+        if (/^(chrome|moz|safari|ms-browser)-extension:\/\//i.test(src)) return true;
       }
       const id = el.id || "";
       const cls = (el.className && String(el.className)) || "";
-      const html = (el.outerHTML || "").slice(0, 500);
+      const html = (el.outerHTML || "").slice(0, 400);
       return SUSPECT_RE.test(id) || SUSPECT_RE.test(cls) || SUSPECT_RE.test(html);
     } catch (_) {
       return false;
@@ -79,88 +92,74 @@
 
   function scanHostile() {
     try {
-      const all = document.querySelectorAll("div, script, iframe, object, embed, span, section");
-      for (let i = 0; i < all.length; i++) {
-        if (elementLooksHostile(all[i])) return true;
+      const nodes = document.querySelectorAll("div, script, iframe, object, embed, span, section");
+      for (let i = 0; i < nodes.length; i++) {
+        if (elementLooksHostile(nodes[i])) return true;
       }
     } catch (_) {}
     return false;
   }
 
-  function currentFaviconHref() {
-    const link =
-      document.querySelector('link[rel="icon"]') ||
-      document.querySelector('link[rel="shortcut icon"]') ||
-      document.querySelector('link[rel="apple-touch-icon"]');
-    return link ? link.href : "";
+  function appUrlForFrame() {
+    // Real app origin+path — NOT a blob snapshot
+    const u = new URL(location.href);
+    u.searchParams.set(FRAMED_PARAM, "1");
+    // Avoid nesting n3xn_app loop noise
+    return u.toString();
   }
 
-  function buildCloakHtml() {
-    const title = document.title || "n3xn";
-    const fav = currentFaviconHref();
-    // Snapshot body HTML (shallow-safe)
-    let body = "";
-    try {
-      body = document.body ? document.body.innerHTML : "";
-    } catch (_) {
-      body = "<p>n3xn protected surface</p>";
-    }
-    const styles = [];
-    try {
-      document.querySelectorAll('link[rel="stylesheet"], style').forEach((n) => {
-        if (n.tagName === "STYLE") styles.push("<style>" + n.textContent + "</style>");
-        else if (n.href && n.href.indexOf("chrome-extension") === -1)
-          styles.push('<link rel="stylesheet" href="' + n.href + '">');
-      });
-    } catch (_) {}
-
+  function shellHtml(frameSrc, title, favHref) {
+    const t = (title || "n3xn").replace(/</g, "<");
+    const fav = favHref
+      ? '<link rel="icon" href="' + String(favHref).replace(/"/g, "") + '">'
+      : "";
     return (
-      "<!DOCTYPE html><html><head><meta charset=\"utf-8\">" +
+      "<!DOCTYPE html><html data-n3xn=\"cloak-shell\"><head><meta charset=\"utf-8\">" +
+      "<meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">" +
       "<title>" +
-      title.replace(/</g, "&lt;") +
+      t +
       "</title>" +
-      (fav ? '<link rel="icon" href="' + fav + '">' : "") +
-      styles.join("") +
+      fav +
+      "<style>html,body{margin:0;height:100%;background:#0a0a0f;overflow:hidden}" +
+      "iframe{position:fixed;inset:0;width:100%;height:100%;border:0;margin:0;padding:0;background:#0a0a0f}" +
+      ".hint{position:fixed;bottom:6px;right:8px;z-index:2;font:11px system-ui;color:#8888a0;opacity:.5;pointer-events:none}" +
+      "</style></head><body data-n3xn=\"safe\">" +
+      "<iframe data-n3xn=\"safe\" id=\"n3xn-app-frame\" src=\"" +
+      frameSrc.replace(/"/g, """) +
+      "\" allow=\"" +
+      ALLOW_ALL +
+      "\" referrerpolicy=\"no-referrer-when-downgrade\"></iframe>" +
+      "<div class=\"hint\" data-n3xn=\"safe\">n3xn app shell · blob top URL · install-as-app recommended · Blocksi not welcome</div>" +
       "<script>(function(){window.__n3xnCloaked=true;" +
-      "document.addEventListener('DOMContentLoaded',function(){" +
-      "try{sessionStorage.setItem('" +
-      SS_KEY +
-      "','1')}catch(e){}});" +
       "window.addEventListener('beforeunload',function(e){e.preventDefault();e.returnValue='';});" +
-      "})();</script>" +
-      "</head><body data-n3xn=\"safe\">" +
-      body +
-      "<div data-n3xn=\"safe\" style=\"position:fixed;bottom:6px;right:8px;opacity:.45;font:11px system-ui;z-index:99999\">" +
-      "n3xn app mode · extensions cannot use an https top URL here · install as app recommended" +
-      "</div></body></html>"
+      "try{var f=document.getElementById('n3xn-app-frame');" +
+      "window.addEventListener('message',function(ev){" +
+      "if(!ev||!ev.data||ev.data.type!=='n3xn-title')return;" +
+      "if(typeof ev.data.title==='string')document.title=ev.data.title;" +
+      "});}catch(e){}" +
+      "})();</script></body></html>"
     );
   }
 
-  function cloak() {
-    if (window[FLAG]) return;
-    try {
-      if (location.protocol === "blob:") return;
-      if (sessionStorage.getItem(SS_KEY) === "1" && location.protocol === "blob:") return;
-    } catch (_) {}
-    window[FLAG] = true;
-    try {
-      const html = buildCloakHtml();
-      const url = URL.createObjectURL(new Blob([html], { type: "text/html" }));
-      location.replace(url);
-    } catch (e) {
-      console.warn("[n3xn anti-blocksi] cloak failed", e);
-      window[FLAG] = false;
-    }
+  function favHref() {
+    const link =
+      document.querySelector('link[rel="icon"]') ||
+      document.querySelector('link[rel="shortcut icon"]');
+    return link ? link.href : "";
   }
 
-  function syncTitleFavicon() {
-    // In blob page, keep observers for any late title changes from scripts
+  function cloakWithIframe() {
+    if (window[FLAG]) return;
+    window[FLAG] = true;
     try {
-      const obs = new MutationObserver(() => {
-        /* title/favicon already baked; placeholder for future live sync bridges */
-      });
-      obs.observe(document.documentElement, { subtree: true, childList: true, attributes: true });
-    } catch (_) {}
+      const src = appUrlForFrame();
+      const html = shellHtml(src, document.title || "n3xn", favHref());
+      const blobUrl = URL.createObjectURL(new Blob([html], { type: "text/html" }));
+      location.replace(blobUrl);
+    } catch (e) {
+      console.warn("[n3xn anti-blocksi] iframe cloak failed", e);
+      window[FLAG] = false;
+    }
   }
 
   function softCloseGuard() {
@@ -171,38 +170,47 @@
     });
   }
 
+  // Framed app can post title up (optional)
+  function publishTitle() {
+    try {
+      if (window.__n3xnFramed && window.parent) {
+        window.parent.postMessage({ type: "n3xn-title", title: document.title }, "*");
+      }
+    } catch (_) {}
+  }
+
   function boot() {
+    if (window.__n3xnFramed) {
+      publishTitle();
+      return;
+    }
     if (!isAppMode()) {
-      // Still recommend app mode in console once
       try {
         console.info(
-          "[n3xn] Anti-Blocksi is idle (not installed as app). Install / Add to ChromeOS for extension isolation."
+          "[n3xn] Anti-Blocksi idle (not installed as app). Install as ChromeOS/PWA app for extension isolation."
         );
       } catch (_) {}
       return;
     }
 
     softCloseGuard();
-    syncTitleFavicon();
 
     if (scanHostile()) {
-      cloak();
+      cloakWithIframe();
       return;
     }
 
-    // Watch for late injection
     try {
-      const mo = new MutationObserver(() => {
+      const mo = new MutationObserver(function () {
         if (window[FLAG]) return;
-        if (scanHostile()) cloak();
+        if (scanHostile()) cloakWithIframe();
       });
       mo.observe(document.documentElement, { childList: true, subtree: true });
     } catch (_) {}
 
-    // Periodic light scan
-    setInterval(() => {
+    setInterval(function () {
       if (window[FLAG]) return;
-      if (scanHostile()) cloak();
+      if (scanHostile()) cloakWithIframe();
     }, 2500);
   }
 
@@ -212,11 +220,11 @@
     boot();
   }
 
-  // Public API
   window.__n3xnAntiBlocksi = {
     scan: scanHostile,
-    cloak: cloak,
+    cloak: cloakWithIframe,
     isAppMode: isAppMode,
-    version: "3.0.0-beta",
+    version: "3.0.1-beta",
+    mode: "iframe-shell",
   };
 })();

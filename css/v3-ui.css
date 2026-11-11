@@ -1,0 +1,97 @@
+
+/**
+ * n3xn VFS v3.0.1-beta — smoother, more colorful shell polish
+ * Load after theme.css / app.css. Uses CSS variables from themes-catalog.
+ */
+
+:root {
+  --v3-radius: 10px;
+  --v3-glow: color-mix(in srgb, var(--accent, #8b9cff) 35%, transparent);
+  --v3-ease: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+html {
+  color-scheme: dark;
+  accent-color: var(--accent, #8b9cff);
+}
+
+body {
+  background:
+    radial-gradient(1200px 600px at 10% -10%, color-mix(in srgb, var(--accent, #8b9cff) 18%, transparent), transparent 60%),
+    radial-gradient(900px 500px at 100% 0%, color-mix(in srgb, #ff7ac8 12%, transparent), transparent 55%),
+    var(--bg, #0b0b14);
+  color: var(--text, #e8e8f0);
+}
+
+/* Buttons */
+.btn,
+button.btn {
+  border-radius: var(--v3-radius);
+  transition: transform 0.15s var(--v3-ease), box-shadow 0.2s var(--v3-ease), background 0.2s ease;
+}
+.btn:hover,
+button.btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 18px var(--v3-glow);
+}
+.btn.primary,
+button.primary {
+  background: linear-gradient(135deg, color-mix(in srgb, var(--accent, #8b9cff) 90%, #fff), color-mix(in srgb, var(--accent, #8b9cff) 50%, #c07cff));
+  color: #0a0a12;
+  border: none;
+  font-weight: 600;
+}
+
+/* Panels / cards */
+.panel,
+.auth-card,
+.modal,
+.conn-card,
+.settings-section {
+  border-radius: calc(var(--v3-radius) + 2px);
+  border-color: color-mix(in srgb, var(--border, #22223a) 80%, var(--accent, #8b9cff));
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.35);
+  backdrop-filter: blur(8px);
+}
+
+/* Inputs */
+input,
+select,
+textarea {
+  border-radius: 8px;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+input:focus,
+select:focus,
+textarea:focus {
+  outline: none;
+  border-color: var(--accent, #8b9cff);
+  box-shadow: 0 0 0 3px var(--v3-glow);
+}
+
+/* Scrollbars */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--accent, #8b9cff) 40%, #333) transparent;
+}
+
+/* Status / version chips */
+.n3xn-version {
+  font-variant-numeric: tabular-nums;
+  opacity: 0.85;
+}
+
+/* Smooth tree / list rows if present */
+.file-tree .node,
+.fs-item,
+.exp-row {
+  transition: background 0.12s ease;
+}
+
+/* Prefer reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition: none !important;
+    animation: none !important;
+  }
+}

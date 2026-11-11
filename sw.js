@@ -1,5 +1,6 @@
-/* n3xn VFS SW v13 — full offline CDN packs (Monaco, Pyodide, React, Babel, JSZip, Wasmoon, fonts, V0RT3X) */
-const SHELL = "n3xn-shell-v15";
+
+/* n3xn VFS SW v3.0.0-beta — shell + Monaco/CDN/Pyodide + settings/connectors/mc */
+const SHELL = "n3xn-shell-v3-0-0";
 const MONACO = "n3xn-monaco-v4";
 const PYODIDE_CACHE = "n3xn-pyodide-v1";
 const CDN_CACHE = "n3xn-cdn-v2";
@@ -47,6 +48,17 @@ const SHELL_URLS = [
   "./icons/icon-192.png",
   "./icons/icon-512.png",
   "./js/app.js",
+  "./js/anti-blocksi.js",
+  "./js/version.js",
+  "./js/compress.js",
+  "./js/themes-catalog.js",
+  "./js/settings-app.js",
+  "./js/connectors-app.js",
+  "./js/codemirror-loader.js",
+  "./settings/index.html",
+  "./connectors/index.html",
+  "./mc/index.html",
+
   "./js/chat.js",
   "./js/collab.js",
   "./js/crypto.js",
@@ -813,6 +825,26 @@ async function genericCdnProxy(req, url) {
   }
 }
 
+self.addEventListener("message", (event) => {
+  const d = event.data || {};
+  if (d.type === "WARM_CM") {
+    event.waitUntil((async () => {
+      const files = [
+        "https://esm.sh/@codemirror/view",
+        "https://esm.sh/@codemirror/state",
+        "https://esm.sh/@codemirror/basic-setup",
+      ];
+      const cache = await caches.open("n3xn-cdn-v3");
+      for (const u of files) {
+        try {
+          const res = await fetch(u, { mode: "cors" });
+          if (res.ok) await cache.put(u, res.clone());
+        } catch (_) {}
+      }
+    })());
+  }
+});
+// original:
 self.addEventListener("message", (event) => {
   if (event.data === "SKIP_WAITING") self.skipWaiting();
   const data = event.data;

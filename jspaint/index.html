@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+<head>
+	<meta charset="utf-8">
+	<title>XK Paint</title>
+	<meta http-equiv="Content-Security-Policy" content="
+		default-src 'self';
+		script-src 'self' blob: https://cdn.jsdelivr.net https://jspaint.firebaseio.com https://www.youtube.com;
+		frame-src 'self' https://youtube.com https://www.youtube.com;
+		style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
+		img-src 'self' data: blob: http: https:;
+		font-src 'self' https://fonts.gstatic.com;
+		connect-src * data: blob: https://jspaint.firebaseio.com wss://jspaint.firebaseio.com;
+	">
+	<link href="styles/normalize.css" rel="stylesheet" type="text/css">
+	<link href="styles/layout.css" class="flippable-layout-stylesheet" rel="stylesheet" type="text/css">
+	<link href="styles/print.css" rel="stylesheet" type="text/css" media="print">
+	<link href="lib/os-gui/build/layout.css" class="flippable-layout-stylesheet" rel="stylesheet" type="text/css">
+	<link href="lib/tracky-mouse/core/tracky-mouse.css" rel="stylesheet" type="text/css">
+	<link href="lib/98.css/98.custom-build.css" class="flippable-layout-stylesheet not-for-modern" rel="stylesheet" type="text/css">
+	<link href="styles/upgrade-overrides.css" rel="stylesheet" type="text/css">
+	<link href="styles/void-neon.css" rel="stylesheet" type="text/css">
+	<link href="styles/void-tool-icons.css" rel="stylesheet" type="text/css">
+	<link href="styles/void-tabs.css" rel="stylesheet" type="text/css">
+	<link rel="apple-touch-icon" href="images/icons/apple-icon-180x180.png">
+	<link rel="shortcut icon" href="favicon.ico">
+	<link rel="manifest" href="manifest.webmanifest">
+	<meta name="theme-color" content="#03040a">
+	<meta name="viewport" content="width=device-width, user-scalable=no">
+	<meta name="description" content="XK Paint — modern offline-capable paint app. https://xkpaint.pages.dev">
+	<script src="src/error-handling-basic.js"></script>
+	<script type="module" src="src/theme.js"></script>
+</head>
+<body class="void-neon">
+	<div id="about-paint" style="display: none">
+		<div id="about-paint-header">
+			<img src="images/icons/128x128.png" width="128" height="128" id="about-paint-icon" alt="" />
+			<div id="about-paint-beside-icon">
+				<h1 id="jspaint-project-name">XK Paint</h1>
+				<div id="jspaint-version">xkpaint.pages.dev</div>
+			</div>
+		</div>
+	</div>
+	<div id="news" hidden></div>
+	<script src="lib/jquery-3.4.1.min.js"></script>
+	<script src="lib/gif.js/gif.js"></script>
+	<script src="lib/pako-2.0.3.min.js"></script>
+	<script src="lib/UPNG.js"></script>
+	<script src="lib/UTIF.js"></script>
+	<script src="lib/bmp.js"></script>
+	<script src="lib/pdf.js/build/pdf.js"></script>
+	<script src="lib/anypalette-0.6.0.js"></script>
+	<script src="lib/FileSaver.js"></script>
+	<script src="lib/font-detective.js"></script>
+	<script src="lib/libtess.min.js"></script>
+	<script src="lib/tracky-mouse/core/tracky-mouse.js"></script>
+	<script src="lib/os-gui/parse-theme.js"></script>
+	<script src="lib/os-gui/$Window.js"></script>
+	<script src="https://cdn.jsdelivr.net/gh/1j01/jspaint@master/lib/os-gui/MenuBar.js"></script>
+	<script src="src/interaction-fix.js"></script>
+	<script src="lib/imagetracer_v1.2.5.js"></script>
+	<script src="src/app-localization.js"></script>
+	<script type="module" src="src/msgbox.js"></script>
+	<script type="module" src="src/functions.js"></script>
+	<script type="module" src="src/helpers.js"></script>
+	<script type="module" src="src/storage.js"></script>
+	<script type="module" src="src/$Component.js"></script>
+	<script type="module" src="src/$ToolWindow.js"></script>
+	<script type="module" src="src/error-handling-enhanced.js"></script>
+	<script type="module" src="src/$ToolBox.js"></script>
+	<script type="module" src="src/$ColorBox.js"></script>
+	<script type="module" src="src/$FontBox.js"></script>
+	<script type="module" src="src/Handles.js"></script>
+	<script type="module" src="src/OnCanvasObject.js"></script>
+	<script type="module" src="src/OnCanvasSelection.js"></script>
+	<script type="module" src="src/OnCanvasTextBox.js"></script>
+	<script type="module" src="src/OnCanvasHelperLayer.js"></script>
+	<script type="module" src="src/image-manipulation.js"></script>
+	<script type="module" src="src/tool-options.js"></script>
+	<script type="module" src="src/tools.js"></script>
+	<script type="module" src="src/color-data.js"></script>
+	<script type="module" src="src/edit-colors.js"></script>
+	<script type="module" src="src/file-format-data.js"></script>
+	<script type="module" src="src/manage-storage.js"></script>
+	<script type="module" src="src/imgur.js"></script>
+	<script type="module" src="src/help.js"></script>
+	<script type="module" src="src/simulate-random-gestures.js"></script>
+	<script type="module" src="src/menus.js"></script>
+	<script type="module" src="src/speech-recognition.js"></script>
+	<script type="module" src="src/eye-gaze-mode.js"></script>
+	<script defer src="src/app-state.js"></script>
+	<script type="module" src="src/app-entry.js"></script>
+	<script type="module" src="src/konami.js"></script>
+	<script type="module" src="src/vaporwave-fun.js"></script>
+	<script src="src/void-quality.js"></script>
+	<script src="src/void-extras.js"></script>
+	<script src="src/void-vfs.js"></script>
+	<script src="src/void-tabs.js"></script>
+</body>
+</html>

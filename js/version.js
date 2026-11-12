@@ -1,10 +1,10 @@
 /**
- * n3xn VFS v3.0.6-beta
+ * n3xn VFS v3.0.7-beta
  */
-export const VERSION = "3.0.6-beta";
+export const VERSION = "3.0.7-beta";
 export const VERSION_LABEL = "v" + VERSION;
 export const CODENAME =
-  "AB suite kill-loop · data-blocksi-processed · blob cloak sync";
+  "/cloaker · 90+ education presets · always/on-detect modes · OPFS-ready";
 
 export function applyVersionToDom() {
   document.querySelectorAll(".n3xn-version, #n3xn-version").forEach((el) => {

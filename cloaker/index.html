@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>n3xn Cloaker v3.0.7-beta</title>
+  <meta name="theme-color" content="#050508" />
+  <script src="../js/console-capture.js" data-n3xn="safe"></script>
+  <script src="../js/anti-blocksi.js" data-n3xn="safe"></script>
+  <link rel="stylesheet" href="../css/theme.css" />
+  <link rel="stylesheet" href="../css/app.css" />
+  <link rel="stylesheet" href="../css/v3-ui.css" />
+  <style>
+    html, body {
+      height: 100%;
+      margin: 0;
+      overflow: hidden;
+      background: var(--bg, #050508);
+      color: var(--text, #e8e8f0);
+      font-family: var(--font-ui, "JetBrains Mono", system-ui, monospace);
+    }
+    .settings-shell { display: flex; flex-direction: column; height: 100%; max-height: 100dvh; }
+    .settings-top {
+      flex: 0 0 auto;
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border, #1a1a28);
+      background: color-mix(in srgb, var(--bg-panel, #0a0a0f) 92%, transparent);
+      display: flex; align-items: center; gap: 12px; flex-wrap: wrap; z-index: 5;
+    }
+    .settings-top a { color: var(--accent, #fff); text-decoration: none; opacity: .85; }
+    .settings-top a:hover { opacity: 1; text-shadow: var(--glow); }
+    .settings-scroll {
+      flex: 1 1 auto;
+      min-height: 0;
+      overflow-y: auto;
+      overflow-x: hidden;
+      -webkit-overflow-scrolling: touch;
+      overscroll-behavior: contain;
+      padding-bottom: 48px;
+    }
+    .settings-section {
+      margin: 1.25rem 0;
+      padding: 1rem 1.15rem;
+      border: 1px solid var(--border, #1a1a28);
+      border-radius: 8px;
+      background: var(--bg-elevated, #0f0f16);
+      box-shadow: var(--glow);
+    }
+    .settings-section h2 {
+      margin: 0 0 10px;
+      font-size: .95rem;
+      letter-spacing: .04em;
+    }
+    .form-group { display: flex; flex-direction: column; gap: 4px; margin: 8px 0; }
+    .form-group label, .check-row { font-size: 12px; color: var(--text-dim, #8888a0); }
+    .form-group input, .form-group select {
+      background: var(--bg, #050508);
+      color: var(--text);
+      border: 1px solid var(--border, #1a1a28);
+      border-radius: 6px;
+      padding: 8px 10px;
+      font: inherit;
+    }
+    .form-group input:focus, .form-group select:focus {
+      outline: none;
+      border-color: rgba(255,255,255,.45);
+      box-shadow: var(--glow);
+    }
+    .check-row { display: flex; align-items: center; gap: 8px; margin: 4px 0; color: var(--text); }
+    .btn {
+      display: inline-block;
+      margin: 4px 6px 4px 0;
+      padding: 8px 12px;
+      border-radius: 6px;
+      border: 1px solid var(--border, #1a1a28);
+      background: var(--bg-panel, #0a0a0f);
+      color: var(--text);
+      cursor: pointer;
+      font: inherit;
+    }
+    .btn.primary {
+      background: #fff;
+      color: #050508;
+      border-color: transparent;
+      font-weight: 700;
+      box-shadow: var(--glow-strong);
+    }
+    .btn:hover { border-color: rgba(255,255,255,.35); }
+    .muted { opacity: .75; font-size: 13px; }
+    .theme-swatch {
+      text-align: left;
+      border-radius: 8px;
+      border: 1px solid var(--border, #1a1a28);
+      padding: 10px;
+      cursor: pointer;
+      color: inherit;
+      background: var(--bg-panel, #0a0a0f);
+      font: inherit;
+      width: 100%;
+    }
+    .theme-swatch:hover {
+      box-shadow: var(--glow);
+      border-color: rgba(255,255,255,.3);
+    }
+  </style>
+</head>
+<body data-n3xn="safe">
+  <div class="settings-shell" id="cloaker-root"></div>
+  <script type="module">
+    import { renderCloakerUI } from "../js/cloaker-app.js";
+    import { loadSavedAppTheme } from "../js/themes-catalog.js";
+    import { applyVersionToDom } from "../js/version.js";
+    try { loadSavedAppTheme(); } catch (_) {}
+    try { applyVersionToDom(); } catch (_) {}
+    renderCloakerUI(document.getElementById("cloaker-root"));
+  </script>
+</body>
+</html>

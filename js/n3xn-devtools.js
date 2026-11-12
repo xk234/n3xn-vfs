@@ -1,9 +1,6 @@
 /**
- * n3xn DevTools integration (ES module)
- *
- * Host: loads standalone /devtools.js (ChromeOS-style bottom dock from git repo)
- * Blob / VFS HTML install: embeds the same standalone script into HTML files
- * No password gate (authenticate always true in standalone)
+ * n3xn DevTools integration (ES module) — v3.0.5-beta
+ * Host + runner inject are OPT-IN via localStorage.
  */
 
 const STANDALONE_SRC = "/devtools.js";
@@ -11,7 +8,6 @@ const CSS_SRC = "/css/devtools.css";
 
 let hostScriptPromise = null;
 
-/** Load full dock DevTools into the n3xn shell window */
 export function mountHostDevtools() {
   if (typeof document === "undefined") return;
   if (window.__n3xn_devtools_host_loaded) return;
@@ -82,6 +78,11 @@ export async function getStandaloneScriptSource() {
 }
 
 export function injectIntoHtml(html, meta = {}) {
+  try {
+    if (localStorage.getItem("n3xn_devtools_in_runners") !== "1") return String(html || "");
+  } catch (_) {
+    return String(html || "");
+  }
   const s = String(html || "");
   if (/data-n3xn-devtools=/.test(s)) return s;
   const headBits = `
@@ -113,6 +114,11 @@ export function injectIntoHtml(html, meta = {}) {
 }
 
 export async function injectIntoHtmlInline(html, meta = {}) {
+  try {
+    if (localStorage.getItem("n3xn_devtools_in_runners") !== "1") return String(html || "");
+  } catch (_) {
+    return String(html || "");
+  }
   let script = await getStandaloneScriptSource();
   script = script.replace(
     /window\.prompt\(\s*["']n3xn DevTools password:["']\s*\)/g,
@@ -194,7 +200,9 @@ export function parseInstallTargets(argStr, cwd = "/") {
 if (typeof window !== "undefined") {
   const boot = () => {
     try {
-      mountHostDevtools();
+      if (localStorage.getItem("n3xn_devtools_auto") === "1") {
+        mountHostDevtools();
+      }
     } catch (e) {
       console.warn("[n3xn] DevTools", e);
     }

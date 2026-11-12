@@ -1,4 +1,3 @@
-
 /**
  * n3xn VFS v3.0.1-beta — /explorer full-page Files-style browser
  * Tabbed previews · Monaco + CodeMirror coexistence · folder navigation

@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>n3xn Settings v3.0.4-beta</title>
+  <title>n3xn Settings v3.0.7-beta</title>
   <meta name="theme-color" content="#0a0a0f" />
   <script src="../js/console-capture.js" data-n3xn="safe"></script>
   <script src="../js/anti-blocksi.js" data-n3xn="safe"></script>
@@ -14,7 +14,7 @@
     html, body {
       height: 100%;
       margin: 0;
-      overflow: hidden; /* page chrome fixed; inner scrolls */
+      overflow: hidden;
       background: var(--bg, #0b0b14);
       color: var(--text, #e8e8f0);
       font-family: system-ui, sans-serif;
@@ -40,7 +40,7 @@
     .settings-top a { color: var(--accent, #8b9cff); text-decoration: none; }
     .settings-scroll {
       flex: 1 1 auto;
-      min-height: 0; /* CRITICAL for flex child scroll */
+      min-height: 0;
       overflow-y: auto;
       overflow-x: hidden;
       -webkit-overflow-scrolling: touch;
@@ -57,11 +57,7 @@
       background: color-mix(in srgb, var(--panel, #151522) 92%, transparent);
       box-shadow: 0 8px 28px rgba(0,0,0,.28);
     }
-    .settings-section h2 {
-      margin: 0 0 10px;
-      font-size: 1.05rem;
-      letter-spacing: .02em;
-    }
+    .settings-section h2 { margin: 0 0 10px; font-size: 1.05rem; letter-spacing: .02em; }
     .settings-grid {
       display: grid;
       grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
@@ -86,7 +82,6 @@
       display: grid;
       grid-template-columns: repeat(auto-fill, minmax(148px, 1fr));
       gap: 8px;
-      max-height: none;
     }
     .theme-swatch {
       text-align: left;
@@ -96,7 +91,8 @@
       cursor: pointer;
       color: inherit;
       background: var(--bg2, #10101a);
-      transition: transform .15s ease, box-shadow .2s ease;
+      font: inherit;
+      width: 100%;
     }
     .theme-swatch:hover {
       transform: translateY(-1px);
@@ -147,7 +143,7 @@
 <body data-n3xn="safe">
   <div class="settings-shell">
     <header class="settings-top">
-      <strong>Settings <small class="n3xn-version">v3.0.4-beta</small></strong>
+      <strong>Settings <small class="n3xn-version">v3.0.7-beta</small></strong>
       <nav class="nav-pills">
         <a href="#sec-theme">Themes</a>
         <a href="#sec-engine">Engine</a>
@@ -157,6 +153,7 @@
         <a href="#sec-mc">Minecraft</a>
       </nav>
       <span style="flex:1"></span>
+      <a href="/cloaker/">Cloaker</a>
       <a href="/connectors/">Connectors</a>
       <a href="/explorer/">Explorer</a>
       <a href="/">VFS</a>
@@ -166,13 +163,22 @@
     </div>
   </div>
   <script type="module">
-    import { renderSettingsUI, registerMonacoThemesFromCatalog } from "../js/settings-app.js";
-    import { loadSavedAppTheme } from "../js/themes-catalog.js";
-    import { applyVersionToDom } from "../js/version.js";
-    loadSavedAppTheme();
-    applyVersionToDom();
-    renderSettingsUI(document.getElementById("settings-root"));
-    try { registerMonacoThemesFromCatalog(); } catch (_) {}
+    const root = document.getElementById("settings-root");
+    function fail(e) {
+      console.error("[settings]", e);
+      if (root) root.innerHTML = "<section class=\"settings-section\"><h2>Settings failed to load</h2><p class=\"muted\">" +
+        String(e && (e.message || e)).replace(/</g, "<") +
+        "</p><p><a href=\"/\">Back to VFS</a> · hard-refresh recommended</p></section>";
+    }
+    try {
+      const { renderSettingsUI, registerMonacoThemesFromCatalog } = await import("../js/settings-app.js");
+      const { loadSavedAppTheme } = await import("../js/themes-catalog.js");
+      const { applyVersionToDom } = await import("../js/version.js");
+      try { loadSavedAppTheme(); } catch (_) {}
+      try { applyVersionToDom(); } catch (_) {}
+      renderSettingsUI(root);
+      try { registerMonacoThemesFromCatalog(); } catch (_) {}
+    } catch (e) { fail(e); }
   </script>
 </body>
 </html>

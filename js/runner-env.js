@@ -1,4 +1,3 @@
-
 /**
  * n3xn VFS v3.0.1-beta — safer run environments
  *

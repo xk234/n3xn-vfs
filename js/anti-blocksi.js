@@ -1,5 +1,5 @@
 /**
- * n3xn VFS v3.0.7-beta — Anti-Blocksi
+ * n3xn VFS v3.0.8-beta — Anti-Blocksi
  * Modes: localStorage n3xn_cloak_mode = always | on-detect | off
  * #blocksi-notifications auto-cloaks when mode !== off.
  */
@@ -46,7 +46,7 @@
 
   function cloakMode() {
     try {
-      return localStorage.getItem("n3xn_cloak_mode") || "on-detect";
+      return localStorage.getItem("n3xn_cloak_mode") || "always";
     } catch (e) {
       return "on-detect";
     }
@@ -264,6 +264,6 @@
     strip: killBlocksiOverlays,
     cloak: cloak,
     mode: cloakMode,
-    version: "3.0.7-beta",
+    version: "3.0.8-beta",
   };
 })();

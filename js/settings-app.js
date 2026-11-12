@@ -1,5 +1,6 @@
 /**
- * n3xn VFS v3.0.4-beta — expanded Settings (Monaco + CodeMirror advanced)
+ * n3xn VFS v3.0.7-beta — Settings (Monaco + CodeMirror advanced)
+ * Fixed: theme swatch template expression syntax error
  */
 import { listThemes, applyAppTheme, loadSavedAppTheme, APP_THEMES } from "./themes-catalog.js";
 import { getCompressionLevel, setCompressionLevel, LEVELS } from "./compress.js";
@@ -139,7 +140,6 @@ export function applyMonacoToEditor(editor, prefs) {
   }
 }
 
-/** Register Monaco themes from APP_THEMES catalog with richer color maps */
 export function registerMonacoThemesFromCatalog() {
   if (!window.monaco?.editor) return;
   Object.entries(APP_THEMES).forEach(([id, t]) => {
@@ -162,20 +162,9 @@ export function registerMonacoThemesFromCatalog() {
           "editorLineNumber.activeForeground": t.vars["--text"] || "#e8e8f0",
           "editorCursor.foreground": t.vars["--accent"] || "#8b9cff",
           "editor.selectionBackground": (t.vars["--accent"] || "#8b9cff") + "44",
-          "editor.inactiveSelectionBackground": (t.vars["--accent"] || "#8b9cff") + "22",
           "editor.lineHighlightBackground": t.vars["--panel"] || "#151522",
-          "editor.lineHighlightBorder": "#00000000",
           "editorWidget.background": t.vars["--panel"] || "#151522",
-          "editorWidget.border": t.vars["--border"] || "#22223a",
-          "editorSuggestWidget.background": t.vars["--panel"] || "#151522",
-          "editorSuggestWidget.selectedBackground": (t.vars["--accent"] || "#8b9cff") + "33",
           "editorGutter.background": t.vars["--bg"] || "#0b0b14",
-          "editorIndentGuide.background": t.vars["--border"] || "#22223a",
-          "editorIndentGuide.activeBackground": t.vars["--muted"] || "#6a6a80",
-          "editorBracketMatch.background": (t.vars["--accent"] || "#8b9cff") + "33",
-          "editorBracketMatch.border": t.vars["--accent"] || "#8b9cff",
-          "scrollbarSlider.background": (t.vars["--accent"] || "#8b9cff") + "33",
-          "scrollbarSlider.hoverBackground": (t.vars["--accent"] || "#8b9cff") + "55",
           "minimap.background": t.vars["--bg2"] || t.vars["--bg"] || "#10101a",
         },
       });
@@ -199,23 +188,11 @@ const PRESETS = {
   },
   compact: {
     label: "Compact",
-    monaco: {
-      fontSize: 12,
-      lineHeight: 18,
-      minimap: false,
-      stickyScroll: false,
-      glyphMargin: false,
-    },
+    monaco: { fontSize: 12, lineHeight: 18, minimap: false, stickyScroll: false, glyphMargin: false },
   },
   presentation: {
     label: "Presentation",
-    monaco: {
-      fontSize: 18,
-      lineHeight: 28,
-      minimap: false,
-      wordWrap: "on",
-      mouseWheelZoom: true,
-    },
+    monaco: { fontSize: 18, lineHeight: 28, minimap: false, wordWrap: "on", mouseWheelZoom: true },
   },
   pure: {
     label: "Distraction-free",
@@ -229,12 +206,6 @@ const PRESETS = {
     },
   },
 };
-
-function el(html) {
-  const d = document.createElement("div");
-  d.innerHTML = html.trim();
-  return d.firstChild;
-}
 
 function field(label, controlHtml) {
   return `<div class="form-group"><label>${label}</label>${controlHtml}</div>`;
@@ -259,15 +230,14 @@ export function renderSettingsUI(root) {
   root.innerHTML = `
     <section class="settings-section" id="sec-theme">
       <h2>App + editor themes (${themes.length})</h2>
-      <p class="muted">Each theme maps CSS variables and a matching Monaco color map (CodeMirror inherits dark/light).</p>
+      <p class="muted">Each theme maps CSS variables and a matching Monaco color map.</p>
       <div class="theme-grid" id="theme-grid"></div>
     </section>
 
     <section class="settings-section" id="sec-engine">
       <h2>Default editor engine</h2>
-      <p class="muted">Used by Explorer and future dual-pane. Main VFS still boots Monaco first.</p>
       <label class="check-row"><input type="radio" name="engine" value="monaco" ${m.editors === "monaco" ? "checked" : ""}/> Monaco (full IDE)</label>
-      <label class="check-row"><input type="radio" name="engine" value="codemirror" ${m.editors === "codemirror" ? "checked" : ""}/> CodeMirror 6 (fast / offline-friendly)</label>
+      <label class="check-row"><input type="radio" name="engine" value="codemirror" ${m.editors === "codemirror" ? "checked" : ""}/> CodeMirror 6</label>
       <div class="preset-row">
         ${Object.entries(PRESETS)
           .map(([id, p]) => `<button type="button" class="btn" data-preset="${id}">${p.label}</button>`)
@@ -282,47 +252,20 @@ export function renderSettingsUI(root) {
         ${field("Line height", `<input type="number" id="m-lineHeight" min="14" max="48" value="${m.lineHeight}"/>`)}
         ${field("Letter spacing", `<input type="number" id="m-letterSpacing" min="-1" max="4" step="0.1" value="${m.letterSpacing}"/>`)}
         ${field("Tab size", `<input type="number" id="m-tabSize" min="1" max="8" value="${m.tabSize}"/>`)}
-        ${field("Font family", `<input type="text" id="m-fontFamily" value="${String(m.fontFamily).replace(/"/g, "&quot;")}"/>`)}
-        ${field(
-          "Word wrap",
-          `<select id="m-wordWrap"><option value="off">off</option><option value="on">on</option><option value="wordWrapColumn">wordWrapColumn</option><option value="bounded">bounded</option></select>`
-        )}
-        ${field(
-          "Line numbers",
-          `<select id="m-lineNumbers"><option value="on">on</option><option value="off">off</option><option value="relative">relative</option><option value="interval">interval</option></select>`
-        )}
-        ${field(
-          "Cursor blink",
-          `<select id="m-cursorBlinking"><option value="blink">blink</option><option value="smooth">smooth</option><option value="phase">phase</option><option value="expand">expand</option><option value="solid">solid</option></select>`
-        )}
-        ${field(
-          "Cursor style",
-          `<select id="m-cursorStyle"><option value="line">line</option><option value="block">block</option><option value="underline">underline</option><option value="line-thin">line-thin</option><option value="block-outline">block-outline</option></select>`
-        )}
+        ${field("Font family", `<input type="text" id="m-fontFamily" value="${String(m.fontFamily).replace(/"/g, """)}"/>`)}
+        ${field("Word wrap", `<select id="m-wordWrap"><option value="off">off</option><option value="on">on</option><option value="wordWrapColumn">wordWrapColumn</option><option value="bounded">bounded</option></select>`)}
+        ${field("Line numbers", `<select id="m-lineNumbers"><option value="on">on</option><option value="off">off</option><option value="relative">relative</option><option value="interval">interval</option></select>`)}
+        ${field("Cursor blink", `<select id="m-cursorBlinking"><option value="blink">blink</option><option value="smooth">smooth</option><option value="phase">phase</option><option value="expand">expand</option><option value="solid">solid</option></select>`)}
+        ${field("Cursor style", `<select id="m-cursorStyle"><option value="line">line</option><option value="block">block</option><option value="underline">underline</option><option value="line-thin">line-thin</option><option value="block-outline">block-outline</option></select>`)}
         ${field("Cursor width", `<input type="number" id="m-cursorWidth" min="1" max="8" value="${m.cursorWidth}"/>`)}
-        ${field(
-          "Whitespace",
-          `<select id="m-renderWhitespace"><option value="none">none</option><option value="boundary">boundary</option><option value="selection">selection</option><option value="trailing">trailing</option><option value="all">all</option></select>`
-        )}
-        ${field(
-          "Line highlight",
-          `<select id="m-renderLineHighlight"><option value="none">none</option><option value="gutter">gutter</option><option value="line">line</option><option value="all">all</option></select>`
-        )}
-        ${field(
-          "Minimap side",
-          `<select id="m-minimapSide"><option value="right">right</option><option value="left">left</option></select>`
-        )}
+        ${field("Whitespace", `<select id="m-renderWhitespace"><option value="none">none</option><option value="boundary">boundary</option><option value="selection">selection</option><option value="trailing">trailing</option><option value="all">all</option></select>`)}
+        ${field("Line highlight", `<select id="m-renderLineHighlight"><option value="none">none</option><option value="gutter">gutter</option><option value="line">line</option><option value="all">all</option></select>`)}
+        ${field("Minimap side", `<select id="m-minimapSide"><option value="right">right</option><option value="left">left</option></select>`)}
         ${field("Minimap scale", `<input type="number" id="m-minimapScale" min="1" max="3" value="${m.minimapScale}"/>`)}
         ${field("Rulers (e.g. 80,120)", `<input type="text" id="m-rulers" value="${m.rulers || ""}" placeholder="80,120"/>`)}
         ${field("Padding top", `<input type="number" id="m-paddingTop" min="0" max="48" value="${m.paddingTop}"/>`)}
-        ${field(
-          "Auto-close brackets",
-          `<select id="m-autoClosingBrackets"><option value="always">always</option><option value="languageDefined">languageDefined</option><option value="beforeWhitespace">beforeWhitespace</option><option value="never">never</option></select>`
-        )}
-        ${field(
-          "Auto-close quotes",
-          `<select id="m-autoClosingQuotes"><option value="always">always</option><option value="languageDefined">languageDefined</option><option value="beforeWhitespace">beforeWhitespace</option><option value="never">never</option></select>`
-        )}
+        ${field("Auto-close brackets", `<select id="m-autoClosingBrackets"><option value="always">always</option><option value="languageDefined">languageDefined</option><option value="beforeWhitespace">beforeWhitespace</option><option value="never">never</option></select>`)}
+        ${field("Auto-close quotes", `<select id="m-autoClosingQuotes"><option value="always">always</option><option value="languageDefined">languageDefined</option><option value="beforeWhitespace">beforeWhitespace</option><option value="never">never</option></select>`)}
       </div>
       <div class="settings-grid" style="margin-top:10px">
         ${check("m-fontLigatures", "Font ligatures", m.fontLigatures)}
@@ -351,11 +294,10 @@ export function renderSettingsUI(root) {
 
     <section class="settings-section" id="sec-cm">
       <h2>CodeMirror 6 — advanced</h2>
-      <p class="muted">Used when engine is CodeMirror or Explorer switches to CM. Cached offline via SW when warmed.</p>
       <div class="settings-grid">
         ${field("Font size", `<input type="number" id="c-fontSize" min="10" max="32" value="${c.fontSize}"/>`)}
         ${field("Tab size", `<input type="number" id="c-tabSize" min="1" max="8" value="${c.tabSize}"/>`)}
-        ${field("Font family", `<input type="text" id="c-fontFamily" value="${String(c.fontFamily).replace(/"/g, "&quot;")}"/>`)}
+        ${field("Font family", `<input type="text" id="c-fontFamily" value="${String(c.fontFamily).replace(/"/g, """)}"/>`)}
       </div>
       <div class="settings-grid">
         ${check("c-lineNumbers", "Line numbers", c.lineNumbers)}
@@ -375,7 +317,7 @@ export function renderSettingsUI(root) {
 
     <section class="settings-section" id="sec-compress">
       <h2>Storage compression</h2>
-      <p class="muted">Default <strong>off</strong> — keeps v2 data readable. Enable only for new heavy writes when db path is wired.</p>
+      <p class="muted">Default <strong>off</strong> — keeps data readable. Enable only when wired.</p>
       <select id="compress-level">
         ${Object.entries(LEVELS)
           .map(([k, v]) => `<option value="${k}" ${k === compress ? "selected" : ""}>${v.label}</option>`)
@@ -384,23 +326,34 @@ export function renderSettingsUI(root) {
     </section>
 
     <section class="settings-section" id="sec-mc">
-      <h2>Minecraft · Paint · Links</h2>
-      <a class="btn primary" href="/mc/index.html">Minecraft (Eagler 1.8)</a>
-      <a class="btn primary" href="/jspaint/">JSPaint / XK Paint</a>
+      <h2>Links</h2>
+      <a class="btn primary" href="/mc/index.html">Minecraft</a>
+      <a class="btn primary" href="/jspaint/">JSPaint</a>
+      <a class="btn" href="/cloaker/">Cloaker</a>
       <a class="btn" href="/explorer/">Explorer</a>
       <a class="btn" href="/connectors/">Connectors</a>
       <a class="btn" href="/">Back to VFS</a>
     </section>
   `;
 
-  // Theme grid
   const grid = root.querySelector("#theme-grid");
   themes.forEach((t) => {
     const theme = APP_THEMES[t.id];
     const b = document.createElement("button");
     b.type = "button";
     b.className = "theme-swatch" + (t.id === savedTheme ? " active" : "");
-    b.innerHTML = `<div class="swatch-bar" style="background:linear-gradient(90deg,${theme?.vars?.["--accent"] || "#8b9cff"},${theme?.vars?.["--ok"] || "#6bffb8"]})"></div><strong>${t.label}</strong><div class="muted" style="font-size:11px">${t.monaco || ""}</div>`;
+    const a = (theme && theme.vars && theme.vars["--accent"]) || "#8b9cff";
+    const o = (theme && theme.vars && theme.vars["--ok"]) || "#6bffb8";
+    b.innerHTML =
+      '<div class="swatch-bar" style="background:linear-gradient(90deg,' +
+      a +
+      "," +
+      o +
+      ')"></div><strong>' +
+      t.label +
+      '</strong><div class="muted" style="font-size:11px">' +
+      (t.monaco || "") +
+      "</div>";
     b.onclick = () => {
       applyAppTheme(t.id);
       savedTheme = t.id;
@@ -414,7 +367,6 @@ export function renderSettingsUI(root) {
     grid.appendChild(b);
   });
 
-  // Selects current values
   const setSel = (id, val) => {
     const n = root.querySelector("#" + id);
     if (n && val != null) n.value = val;
@@ -494,6 +446,14 @@ export function renderSettingsUI(root) {
     };
   }
 
+  function setStatus(msg) {
+    try {
+      const s = document.getElementById("status-msg");
+      if (s) s.textContent = msg;
+    } catch (_) {}
+    console.info("[settings]", msg);
+  }
+
   root.querySelector("#btn-save-monaco")?.addEventListener("click", () => {
     m = readMonacoForm();
     savePrefs(LS_MONACO, m);
@@ -538,14 +498,6 @@ export function renderSettingsUI(root) {
       setStatus("Preset: " + p.label);
     });
   });
-
-  function setStatus(msg) {
-    try {
-      const s = document.getElementById("status-msg");
-      if (s) s.textContent = msg;
-    } catch (_) {}
-    console.info("[settings]", msg);
-  }
 }
 
 if (typeof window !== "undefined") {

@@ -346,17 +346,25 @@ function renderNode(container, node, path, depth) {
     item.className = "tree-item";
     item.style.paddingLeft = 10 + depth * 12 + "px";
     const isDir = child.type === "dir";
-    item.innerHTML = `<span class="icon">${isDir ? "📁" : "📄"}</span><span class="name">${escapeTree(name)}</span>`;
+    const isImage = /\.(png|jpe?g|gif|webp|bmp|ico|svg)$/i.test(name);
+    item.innerHTML = `<span class="icon">${isDir ? "📁" : isImage ? "🖼️" : "📄"}</span><span class="name">${escapeTree(name)}</span>`;
     item.onclick = async () => {
       document.querySelectorAll(".tree-item").forEach((el) => el.classList.remove("active"));
       item.classList.add("active");
       document.getElementById("current-path").textContent = full;
-      if (!isDir) {
-        try {
+    };
+    item.ondblclick = async () => {
+      if (isDir) return;
+      try {
+        if (isImage) {
+          const { openImageEditor } = await import("./jspaint-bridge.js");
+          await openImageEditor({ path: full });
+          setStatus("JSPaint · " + full);
+        } else {
           await ed.openFile(full);
-        } catch (e) {
-          setStatus("Error: " + e.message);
         }
+      } catch (e) {
+        setStatus("Error: " + e.message);
       }
     };
     item.oncontextmenu = (e) => {

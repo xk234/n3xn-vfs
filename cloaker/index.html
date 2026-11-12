@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>n3xn Cloaker v3.0.7-beta</title>
+  <title>n3xn Cloaker v3.0.8-beta</title>
   <meta name="theme-color" content="#050508" />
   <script src="../js/console-capture.js" data-n3xn="safe"></script>
   <script src="../js/anti-blocksi.js" data-n3xn="safe"></script>
@@ -107,12 +107,18 @@
 <body data-n3xn="safe">
   <div class="settings-shell" id="cloaker-root"></div>
   <script type="module">
-    import { renderCloakerUI } from "../js/cloaker-app.js";
-    import { loadSavedAppTheme } from "../js/themes-catalog.js";
-    import { applyVersionToDom } from "../js/version.js";
-    try { loadSavedAppTheme(); } catch (_) {}
-    try { applyVersionToDom(); } catch (_) {}
-    renderCloakerUI(document.getElementById("cloaker-root"));
+    const root = document.getElementById("cloaker-root");
+    function fail(e) {
+      console.error("[cloaker]", e);
+      if (root) root.innerHTML = "<div style=\"padding:1.5rem;color:#e8e8f0;font-family:system-ui\"><h2>Cloaker failed to load</h2><p>" +
+        String(e && (e.message||e)).replace(/</g,"&lt;") + "</p><p><a href=\"/\" style=\"color:#fff\">Back to VFS</a></p></div>";
+    }
+    try {
+      const { renderCloakerUI } = await import("../js/cloaker-app.js");
+      try { const { loadSavedAppTheme } = await import("../js/themes-catalog.js"); loadSavedAppTheme(); } catch (_) {}
+      try { const { applyVersionToDom } = await import("../js/version.js"); applyVersionToDom(); } catch (_) {}
+      renderCloakerUI(root);
+    } catch (e) { fail(e); }
   </script>
 </body>
 </html>

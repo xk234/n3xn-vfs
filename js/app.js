@@ -1201,7 +1201,7 @@ const _bootApp = typeof bootApp === "function" ? bootApp : null;
 
 
 import("./n3xn-devtools.js")
-  .then((dt) => dt.mountHostDevtools())
+  .then((dt) => { try { if (localStorage.getItem("n3xn_devtools_auto") === "1") dt.mountHostDevtools(); } catch (_) {} })
   .catch((e) => console.warn("[n3xn] devtools", e));
 
 window.__n3xnRunXdebug = async (path) => {

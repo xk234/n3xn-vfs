@@ -1,10 +1,10 @@
 /**
- * n3xn VFS v3.0.2-beta
+ * n3xn VFS v3.0.3-beta
  */
-export const VERSION = "3.0.2-beta";
+export const VERSION = "3.0.3-beta";
 export const VERSION_LABEL = "v" + VERSION;
 export const CODENAME =
-  "JSPaint image editor · /jspaint/ · systemHooks VFS bridge";
+  "JSPaint dblclick · Blocksi #blocksi-notifications · n3xn-only console";
 
 export function applyVersionToDom() {
   document.querySelectorAll(".n3xn-version, #n3xn-version").forEach((el) => {

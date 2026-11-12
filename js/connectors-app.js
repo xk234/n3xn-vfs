@@ -1,21 +1,25 @@
-
 /**
- * n3xn VFS v3.0.0-beta — Connectors (keys / tokens stored encrypted when VFS session exists)
- * Falls back to session-only memory if not logged in.
+ * n3xn VFS v3.0.4-beta — expanded Connectors
  */
 const STORE_KEY = "n3xn_connectors_v1";
 
 const BUILTIN = [
-  { id: "openai", label: "OpenAI API key", fields: ["apiKey", "baseUrl"] },
-  { id: "anthropic", label: "Anthropic API key", fields: ["apiKey"] },
-  { id: "github", label: "GitHub token", fields: ["token", "username"] },
-  { id: "cf-workers", label: "Cloudflare Workers / AI", fields: ["accountId", "apiToken"] },
-  { id: "wss-relay", label: "Collab / Chat WSS relay", fields: ["url"] },
-  { id: "custom-http", label: "Custom HTTP endpoint", fields: ["url", "headerName", "headerValue"] },
-  { id: "s3", label: "S3-compatible storage", fields: ["endpoint", "accessKey", "secretKey", "bucket"] },
-  { id: "supabase", label: "Supabase", fields: ["url", "anonKey"] },
-  { id: "firebase", label: "Firebase", fields: ["apiKey", "projectId"] },
-  { id: "discord", label: "Discord webhook / bot", fields: ["webhookUrl", "botToken"] },
+  { id: "openai", label: "OpenAI", fields: ["apiKey", "baseUrl", "model"], hint: "Chat / completions" },
+  { id: "anthropic", label: "Anthropic", fields: ["apiKey", "model"], hint: "Claude" },
+  { id: "google-ai", label: "Google AI / Gemini", fields: ["apiKey", "model"] },
+  { id: "groq", label: "Groq", fields: ["apiKey", "model"] },
+  { id: "github", label: "GitHub", fields: ["token", "username", "defaultRepo"], hint: "VFS sync / API" },
+  { id: "gitlab", label: "GitLab", fields: ["token", "baseUrl"] },
+  { id: "cf-workers", label: "Cloudflare", fields: ["accountId", "apiToken", "workersAi"] },
+  { id: "wss-relay", label: "Collab / Chat WSS", fields: ["url", "password"] },
+  { id: "custom-http", label: "Custom HTTP", fields: ["url", "headerName", "headerValue", "method"] },
+  { id: "s3", label: "S3-compatible", fields: ["endpoint", "accessKey", "secretKey", "bucket", "region"] },
+  { id: "supabase", label: "Supabase", fields: ["url", "anonKey", "serviceRole"] },
+  { id: "firebase", label: "Firebase", fields: ["apiKey", "projectId", "appId"] },
+  { id: "discord", label: "Discord", fields: ["webhookUrl", "botToken"] },
+  { id: "telegram", label: "Telegram bot", fields: ["botToken", "chatId"] },
+  { id: "notion", label: "Notion", fields: ["apiKey", "databaseId"] },
+  { id: "spotify", label: "Spotify", fields: ["clientId", "clientSecret", "refreshToken"] },
 ];
 
 function memStore() {
@@ -46,8 +50,7 @@ export function saveConnectorsPlain(obj) {
 }
 
 export function getConnector(id) {
-  const all = loadConnectorsPlain();
-  return all[id] || null;
+  return loadConnectorsPlain()[id] || null;
 }
 
 export function setConnector(id, data) {
@@ -68,29 +71,26 @@ export function renderConnectorsUI(root) {
   const types = listConnectorTypes();
   const all = loadConnectorsPlain();
   root.innerHTML = `
-    <div class="conn-wrap">
-      <h2>Connectors</h2>
-      <p class="muted">Keys stay in this browser (localStorage). Prefer installed-app mode. Never commit tokens to VFS public files.</p>
-      <div class="conn-list"></div>
-    </div>`;
+    <p class="muted">Keys stay in this browser (localStorage). Prefer installed-app mode. Never commit tokens into public VFS files.</p>
+    <p class="muted">${types.length} connector types · scroll for all</p>
+    <div class="conn-list"></div>
+  `;
   const list = root.querySelector(".conn-list");
   types.forEach((t) => {
     const cur = all[t.id] || {};
     const card = document.createElement("div");
     card.className = "conn-card";
-    card.innerHTML = `<h3>${t.label}</h3>`;
+    card.innerHTML = `<h3>${t.label}</h3>${t.hint ? `<p class="muted">${t.hint}</p>` : ""}`;
     t.fields.forEach((f) => {
       const row = document.createElement("div");
       row.className = "form-group";
-      row.innerHTML = `<label>${f}</label><input type="${
-        /key|token|secret/i.test(f) ? "password" : "text"
-      }" data-field="${f}" value="" placeholder="${f}" autocomplete="off" />`;
+      const secret = /key|token|secret|password|role/i.test(f);
+      row.innerHTML = `<label>${f}</label><input type="${secret ? "password" : "text"}" data-field="${f}" value="" placeholder="${f}" autocomplete="off" />`;
       const input = row.querySelector("input");
       if (cur[f]) input.value = cur[f];
       card.appendChild(row);
     });
     const actions = document.createElement("div");
-    actions.className = "conn-actions";
     const save = document.createElement("button");
     save.className = "btn primary";
     save.textContent = "Save";
@@ -104,7 +104,7 @@ export function renderConnectorsUI(root) {
       setTimeout(() => (save.textContent = "Save"), 1200);
     };
     const clear = document.createElement("button");
-    clear.className = "btn ghost";
+    clear.className = "btn";
     clear.textContent = "Clear";
     clear.onclick = () => {
       deleteConnector(t.id);

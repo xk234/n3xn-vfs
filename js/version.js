@@ -1,10 +1,10 @@
 /**
- * n3xn VFS v3.0.8-beta
+ * n3xn VFS v3.0.9-beta
  */
-export const VERSION = "3.0.8-beta";
+export const VERSION = "3.0.9-beta";
 export const VERSION_LABEL = "v" + VERSION;
 export const CODENAME =
-  "Settings fix · cloaker presets · cloak always default · OPFS path";
+  "JSPaint VFS read fix · explorer restore · rich terminal ^^^ logs";
 
 export function applyVersionToDom() {
   document.querySelectorAll(".n3xn-version, #n3xn-version").forEach((el) => {

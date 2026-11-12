@@ -1,10 +1,10 @@
 /**
- * n3xn VFS v3.0.4-beta
+ * n3xn VFS v3.0.5-beta
  */
-export const VERSION = "3.0.4-beta";
+export const VERSION = "3.0.5-beta";
 export const VERSION_LABEL = "v" + VERSION;
 export const CODENAME =
-  "Advanced Settings · scrollable · Monaco/CM deep controls · themed editors";
+  "Anti-Blocksi scrub+cloak · no auto DevTools · title/fav sync";
 
 export function applyVersionToDom() {
   document.querySelectorAll(".n3xn-version, #n3xn-version").forEach((el) => {

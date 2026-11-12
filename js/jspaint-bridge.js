@@ -1,15 +1,7 @@
 /**
- * n3xn VFS v3.0.2-beta — JSPaint / XK Paint bridge
- *
- * Uses the real app at /jspaint/ (exact tree you uploaded).
- * Embeds it in a full-allow iframe and wires jspaint systemHooks to n3xn VFS.
- *
- * Public API:
- *   openImageEditor({ path?, blob?, fileName?, onClose? })
- *   closeImageEditor()
- *   isImageEditorOpen()
+ * n3xn VFS v3.0.9-beta — JSPaint bridge
+ * Reads fs.readFile records as { content, mime } → Blob
  */
-
 const JSPAINT_URL = "/jspaint/index.html";
 const HANDLE_PREFIX = "n3xn:";
 
@@ -34,82 +26,81 @@ function pathFromHandle(handle) {
 }
 
 function toHandle(path) {
-  return HANDLE_PREFIX + path;
+  return HANDLE_PREFIX + String(path || "");
+}
+
+function guessName(path, fallback) {
+  if (!path) return fallback || "untitled.png";
+  const s = String(path).replace(/\/+$/, "");
+  const i = s.lastIndexOf("/");
+  return (i >= 0 ? s.slice(i + 1) : s) || fallback || "untitled.png";
+}
+
+function recordToBlob(rec, path) {
+  if (!rec) throw new Error("No such file: " + path);
+  if (rec instanceof Blob) return rec;
+  const mime = rec.mime || "application/octet-stream";
+  const content = rec.content != null ? rec.content : rec;
+  if (content instanceof Blob) return content;
+  if (content instanceof ArrayBuffer) return new Blob([content], { type: mime });
+  if (content instanceof Uint8Array) return new Blob([content], { type: mime });
+  if (typeof content === "string") return new Blob([content], { type: mime });
+  if (content && content.buffer instanceof ArrayBuffer) return new Blob([content], { type: mime });
+  throw new Error("Unsupported VFS payload for " + path);
 }
 
 async function vfsReadBlob(path) {
-  if (window.__n3xnFS?.readBlob) return window.__n3xnFS.readBlob(path);
-  if (window.__n3xnFS?.readFile) {
-    const data = await window.__n3xnFS.readFile(path);
-    if (data instanceof Blob) return data;
-    if (data instanceof ArrayBuffer) return new Blob([data]);
-    if (data instanceof Uint8Array) return new Blob([data]);
-    if (typeof data === "string") return new Blob([data]);
+  path = String(path || "");
+  if (!path.startsWith("/")) path = "/" + path;
+
+  if (window.__n3xnFS?.readBlob) {
+    try {
+      return await window.__n3xnFS.readBlob(path);
+    } catch (e) {
+      console.warn("[n3xn jspaint] __n3xnFS.readBlob failed, trying fs.js", e);
+    }
   }
+
   try {
     const fs = await import("./fs.js");
-    if (fs.readFile) {
-      const data = await fs.readFile(path);
-      if (data instanceof Blob) return data;
-      if (data instanceof ArrayBuffer || data instanceof Uint8Array) return new Blob([data]);
-      if (typeof data === "string") return new Blob([data], { type: "text/plain" });
+    const rec = await fs.readFile(path);
+    return recordToBlob(rec, path);
+  } catch (e) {
+    if (window.__n3xnFS?.readFile) {
+      const data = await window.__n3xnFS.readFile(path);
+      return recordToBlob(data, path);
     }
-  } catch (_) {}
-  throw new Error("VFS read not available for " + path);
+    throw e instanceof Error ? e : new Error("VFS read failed for " + path + ": " + e);
+  }
 }
 
 async function vfsWriteBlob(path, blob) {
+  path = String(path || "");
+  if (!path.startsWith("/")) path = "/" + path;
+  const mime = (blob && blob.type) || "application/octet-stream";
+
   if (window.__n3xnFS?.writeBlob) {
     await window.__n3xnFS.writeBlob(path, blob);
     return true;
   }
-  if (window.__n3xnFS?.writeFile) {
-    const buf = await blob.arrayBuffer();
-    await window.__n3xnFS.writeFile(path, new Uint8Array(buf));
-    return true;
-  }
-  try {
-    const fs = await import("./fs.js");
-    if (fs.writeFile) {
-      const buf = await blob.arrayBuffer();
-      await fs.writeFile(path, new Uint8Array(buf));
-      return true;
-    }
-  } catch (_) {}
-  try {
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(blob);
-    a.download = path.split("/").pop() || "image.png";
-    a.click();
-    setTimeout(() => URL.revokeObjectURL(a.href), 2000);
-  } catch (_) {}
-  return false;
+
+  const fs = await import("./fs.js");
+  const buf = new Uint8Array(await blob.arrayBuffer());
+  await fs.writeFile(path, buf, { mime });
+  return true;
 }
 
-function guessName(path, fallback) {
-  if (path) {
-    const n = path.split("/").filter(Boolean).pop();
-    if (n) return n;
-  }
-  return fallback || "untitled.png";
-}
-
-function waitFor(pred, interval = 100, timeout = 20000) {
+function waitFor(fn, interval = 50, timeout = 20000) {
+  const t0 = Date.now();
   return new Promise((resolve, reject) => {
-    const t0 = Date.now();
-    const id = setInterval(() => {
+    const tick = () => {
       try {
-        if (pred()) {
-          clearInterval(id);
-          resolve(true);
-          return;
-        }
+        if (fn()) return resolve(true);
       } catch (_) {}
-      if (Date.now() - t0 > timeout) {
-        clearInterval(id);
-        reject(new Error("timeout waiting for JSPaint"));
-      }
-    }, interval);
+      if (Date.now() - t0 > timeout) return reject(new Error("timeout waiting for JSPaint"));
+      setTimeout(tick, interval);
+    };
+    tick();
   });
 }
 
@@ -125,21 +116,16 @@ function ensureHost() {
   Object.assign(hostEl.style, {
     position: "fixed",
     inset: "0",
-    zIndex: "99990",
-    background: "#0a0a0f",
+    zIndex: "12000",
+    background: "rgba(5,5,8,.92)",
     display: "flex",
     flexDirection: "column",
   });
-  hostEl.innerHTML = `
-    <div data-n3xn="safe" style="display:flex;align-items:center;gap:10px;padding:8px 12px;background:#050508;border-bottom:1px solid #22223a;color:#e8e8f0;font:13px system-ui">
-      <strong style="letter-spacing:.02em">n3xn × JSPaint</strong>
-      <span style="opacity:.65;font-size:12px">/jspaint/ · VFS-linked · ${window.__N3XN_VERSION_LABEL || "v3"}</span>
-      <span style="flex:1"></span>
-      <a href="/jspaint/" target="_blank" rel="noopener" style="color:#a0b0ff;text-decoration:none">Open /jspaint/ ↗</a>
-      <button type="button" id="n3xn-jspaint-close" style="background:linear-gradient(135deg,#7c8cff,#b07cff);color:#0a0a12;border:0;border-radius:8px;padding:6px 12px;font-weight:600;cursor:pointer">Close</button>
-    </div>
-    <div id="n3xn-jspaint-frame-wrap" style="flex:1;min-height:0;position:relative"></div>
-  `;
+  hostEl.innerHTML =
+    '<div data-n3xn="safe" style="flex:0 0 auto;display:flex;align-items:center;gap:10px;padding:8px 12px;border-bottom:1px solid #1a1a28;background:#0a0a0f;color:#e8e8f0;font:13px system-ui,sans-serif">' +
+    '<strong style="letter-spacing:.04em">JSPaint · n3xn VFS</strong><span style="flex:1"></span>' +
+    '<button type="button" id="n3xn-jspaint-close" style="cursor:pointer;padding:6px 12px;border-radius:6px;border:1px solid #333;background:#1a1a28;color:#fff">Close</button></div>' +
+    '<div id="n3xn-jspaint-frame-wrap" data-n3xn="safe" style="flex:1;position:relative;min-height:0"></div>';
   document.body.appendChild(hostEl);
   hostEl.querySelector("#n3xn-jspaint-close").onclick = () => closeImageEditor();
   return hostEl;
@@ -149,97 +135,39 @@ function wireSystemHooks(win, session) {
   if (!win.systemHooks) win.systemHooks = {};
   const hooks = win.systemHooks;
 
-  hooks.readBlobFromHandle = async (fileHandle) => {
-    const path = pathFromHandle(fileHandle);
-    if (!path) throw new Error("No file handle");
-    const blob = await vfsReadBlob(path);
-    try {
-      return new File([blob], guessName(path), { type: blob.type || "image/png" });
-    } catch {
-      return blob;
-    }
+  hooks.readBlobFromHandle = async (handle) => {
+    const path = pathFromHandle(handle) || session.path;
+    if (!path) throw new Error("No path for handle");
+    return vfsReadBlob(path);
   };
 
-  hooks.writeBlobToHandle = async (fileHandle, blob) => {
-    const path = pathFromHandle(fileHandle) || session.path;
-    if (!path) return false;
-    const ok = await vfsWriteBlob(path, blob);
-    if (ok) session.path = path;
-    return !!ok;
-  };
-
-  hooks.showOpenFileDialog = async ({ formats }) => {
-    if (typeof window.__n3xnPickFile === "function") {
-      const picked = await window.__n3xnPickFile({ formats, accept: "image/*" });
-      if (!picked) return;
-      const path = picked.path || picked;
-      const blob = picked.blob || (await vfsReadBlob(path));
-      session.path = path;
-      session.fileName = guessName(path);
-      return { file: blob, fileHandle: toHandle(path) };
-    }
-    return new Promise((resolve) => {
-      const input = document.createElement("input");
-      input.type = "file";
-      input.accept = "image/*,.png,.jpg,.jpeg,.gif,.webp,.bmp,.svg";
-      input.onchange = async () => {
-        const f = input.files && input.files[0];
-        if (!f) {
-          resolve(undefined);
-          return;
-        }
-        const path = `/images/${f.name}`;
-        try {
-          await vfsWriteBlob(path, f);
-        } catch (_) {}
-        session.path = path;
-        session.fileName = f.name;
-        resolve({ file: f, fileHandle: toHandle(path) });
-      };
-      input.click();
-    });
-  };
-
-  hooks.showSaveFileDialog = async ({
-    formats,
-    defaultFileName,
-    defaultFileFormatID,
-    getBlob,
-    savedCallbackUnreliable,
-    dialogTitle,
-  }) => {
-    const name = defaultFileName || session.fileName || "untitled.png";
-    let path = session.path || `/images/${name}`;
-    if (typeof window.__n3xnPickSavePath === "function") {
-      const picked = await window.__n3xnPickSavePath({
-        defaultFileName: name,
-        defaultPath: path,
-        dialogTitle,
-        formats,
-      });
-      if (!picked) return;
-      path = picked.path || picked;
-    } else {
-      const entered = window.prompt(dialogTitle || "Save as VFS path", path);
-      if (!entered) return;
-      path = entered.startsWith("/") ? entered : `/${entered}`;
-    }
-    const formatId = defaultFileFormatID || "image/png";
-    const blob = await getBlob(formatId);
+  hooks.writeBlobToHandle = async (handle, blob) => {
+    const path = pathFromHandle(handle) || session.path;
+    if (!path) throw new Error("No path for handle");
     await vfsWriteBlob(path, blob);
     session.path = path;
-    session.fileName = guessName(path, name);
-    if (typeof savedCallbackUnreliable === "function") {
-      try {
-        savedCallbackUnreliable({
-          newFileName: session.fileName,
-          newFileFormatID: formatId,
-          newFileHandle: toHandle(path),
-          newBlob: blob,
-        });
-      } catch (_) {}
-    }
+    session.fileName = guessName(path, session.fileName);
   };
+
+  hooks.showSaveFilePicker =
+    hooks.showSaveFilePicker ||
+    (async (opts = {}) => {
+      const name = opts.suggestedName || session.fileName || "untitled.png";
+      let path = session.path || "/images/" + name;
+      const entered = window.prompt("Save to VFS path", path);
+      if (!entered) throw new Error("Save cancelled");
+      path = entered.startsWith("/") ? entered : "/" + entered;
+      return toHandle(path);
+    });
+
+  hooks.showOpenFilePicker =
+    hooks.showOpenFilePicker ||
+    (async () => {
+      const entered = window.prompt("Open VFS path", session.path || "/");
+      if (!entered) throw new Error("Open cancelled");
+      const path = entered.startsWith("/") ? entered : "/" + entered;
+      return [toHandle(path)];
+    });
 }
 
 export async function openImageEditor(opts = {}) {
@@ -258,7 +186,11 @@ export async function openImageEditor(opts = {}) {
   iframe.setAttribute("allow", allowAll());
   iframe.removeAttribute("allowfullscreen");
   iframe.removeAttribute("sandbox");
-  iframe.src = JSPAINT_URL + (opts.path ? `?n3xn_path=${encodeURIComponent(opts.path)}` : "");
+  const bust = "n3xn_t=" + Date.now();
+  const q = opts.path
+    ? "?n3xn_path=" + encodeURIComponent(opts.path) + "&" + bust
+    : "?" + bust;
+  iframe.src = JSPAINT_URL + q;
   Object.assign(iframe.style, {
     position: "absolute",
     inset: "0",
@@ -272,12 +204,17 @@ export async function openImageEditor(opts = {}) {
 
   await new Promise((res) => {
     iframe.addEventListener("load", () => res(), { once: true });
+    setTimeout(res, 8000);
   });
 
   const win = iframe.contentWindow;
   if (!win) throw new Error("JSPaint iframe blocked");
 
-  await waitFor(() => !!(win.systemHooks || win.open_from_file), 100, 25000);
+  try {
+    await waitFor(() => !!(win.systemHooks || win.open_from_file || win.$ || win.canvas), 80, 25000);
+  } catch (e) {
+    console.warn("[n3xn jspaint] hooks wait:", e.message);
+  }
   if (!win.systemHooks) win.systemHooks = {};
   wireSystemHooks(win, session);
 
@@ -285,32 +222,42 @@ export async function openImageEditor(opts = {}) {
   if (!blob && session.path) {
     try {
       blob = await vfsReadBlob(session.path);
+      console.info("[n3xn jspaint] loaded", session.path, blob.size, blob.type);
     } catch (e) {
       console.warn("[n3xn jspaint] initial read failed", e);
     }
   }
+
   if (blob) {
-    const handle = session.path ? toHandle(session.path) : toHandle(`/images/${session.fileName}`);
     try {
       if (typeof win.open_from_file === "function") {
-        win.open_from_file(blob, handle);
+        const file = new File([blob], session.fileName, { type: blob.type || "image/png" });
+        await win.open_from_file(file, session.fileName);
+      } else if (typeof win.systemHooks?.loadBlob === "function") {
+        await win.systemHooks.loadBlob(blob);
       }
     } catch (e) {
       console.warn("[n3xn jspaint] open_from_file failed", e);
     }
   }
 
-  return { iframe, session };
+  host.style.display = "flex";
+  return session;
 }
 
 export function closeImageEditor() {
+  if (frameEl) {
+    try {
+      frameEl.src = "about:blank";
+    } catch (_) {}
+    frameEl = null;
+  }
   if (hostEl) {
     try {
       hostEl.remove();
     } catch (_) {}
+    hostEl = null;
   }
-  hostEl = null;
-  frameEl = null;
   const cb = onCloseCb;
   onCloseCb = null;
   try {
@@ -322,22 +269,32 @@ export function isImageEditorOpen() {
   return !!(hostEl && document.body.contains(hostEl));
 }
 
-export function openJspaintStandalone(path) {
-  const url = path
-    ? `/jspaint/index.html?n3xn_path=${encodeURIComponent(path)}`
-    : "/jspaint/";
-  window.open(url, "_blank", "noopener");
+export async function installN3xnFsBridge() {
+  const fs = await import("./fs.js");
+  window.__n3xnFS = {
+    async readBlob(path) {
+      return recordToBlob(await fs.readFile(path), path);
+    },
+    async writeBlob(path, blob) {
+      const buf = new Uint8Array(await blob.arrayBuffer());
+      await fs.writeFile(path, buf, { mime: blob.type || "application/octet-stream" });
+    },
+    readFile: (p) => fs.readFile(p),
+    writeFile: (p, d, m) => fs.writeFile(p, d, m || {}),
+    listDir: (p) => fs.ls(p || "/"),
+    ls: (p) => fs.ls(p || "/"),
+    async readText(path) {
+      const rec = await fs.readFile(path);
+      if (rec?.text) return rec.text();
+      if (typeof rec?.content === "string") return rec.content;
+      if (rec?.content) return new TextDecoder().decode(rec.content);
+      return "";
+    },
+  };
+  return window.__n3xnFS;
 }
 
 if (typeof window !== "undefined") {
-  window.__n3xnJSPaint = {
-    openImageEditor,
-    closeImageEditor,
-    isImageEditorOpen,
-    openJspaintStandalone,
-    JSPAINT_URL,
-  };
-  window.openImageStudio = (p) =>
-    openImageEditor(typeof p === "string" ? { path: p } : p || {});
+  window.__n3xnJSPaint = { openImageEditor, closeImageEditor, isImageEditorOpen, installN3xnFsBridge };
   window.openImageEditor = openImageEditor;
 }

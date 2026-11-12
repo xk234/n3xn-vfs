@@ -1,10 +1,10 @@
 /**
- * n3xn VFS v3.0.7-beta
+ * n3xn VFS v3.0.8-beta
  */
-export const VERSION = "3.0.7-beta";
+export const VERSION = "3.0.8-beta";
 export const VERSION_LABEL = "v" + VERSION;
 export const CODENAME =
-  "/cloaker · 90+ education presets · always/on-detect modes · OPFS-ready";
+  "Settings fix · cloaker presets · cloak always default · OPFS path";
 
 export function applyVersionToDom() {
   document.querySelectorAll(".n3xn-version, #n3xn-version").forEach((el) => {

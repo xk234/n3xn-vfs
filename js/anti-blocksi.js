@@ -1,6 +1,7 @@
 /**
- * n3xn VFS v3.0.6-beta — Anti-Blocksi
- * Techniques from AB Cloak Suite: kill-loop, data-blocksi-processed, title/fav sync.
+ * n3xn VFS v3.0.7-beta — Anti-Blocksi
+ * Modes: localStorage n3xn_cloak_mode = always | on-detect | off
+ * #blocksi-notifications auto-cloaks when mode !== off.
  */
 (function n3xnAntiBlocksi() {
   "use strict";
@@ -43,32 +44,26 @@
     "screen-wake-lock; serial; speaker-selection; storage-access; usb; " +
     "web-share; window-management; xr-spatial-tracking";
 
+  function cloakMode() {
+    try {
+      return localStorage.getItem("n3xn_cloak_mode") || "on-detect";
+    } catch (e) {
+      return "on-detect";
+    }
+  }
+
   function killBlocksiOverlays() {
     try {
       var n = document.getElementById("__blocksi_iframe_blocked__");
       if (n) n.remove();
       n = document.getElementById("blocksi-notifications");
       if (n) n.remove();
-
       document.querySelectorAll("[id*=blocksi],[class*=blocksi],[id*=__blocksi]").forEach(function (el) {
         try {
           if (el.getAttribute && el.getAttribute("data-n3xn") === "safe") return;
-          var id = (el.id || "").toLowerCase();
-          var cls = String(el.className || "").toLowerCase();
-          if (
-            id.indexOf("blocked") !== -1 ||
-            id.indexOf("overlay") !== -1 ||
-            id === "__blocksi_iframe_blocked__" ||
-            id === "blocksi-notifications" ||
-            cls.indexOf("blocksi-notifications") !== -1 ||
-            cls.indexOf("blocked") !== -1 ||
-            id.indexOf("blocksi") !== -1
-          ) {
-            el.remove();
-          }
+          el.remove();
         } catch (e) {}
       });
-
       document
         .querySelectorAll("img[src*='iframe-denied'],img[src*='blocked_content'],img[src^='chrome-extension://']")
         .forEach(function (el) {
@@ -76,16 +71,13 @@
             el.remove();
           } catch (e) {}
         });
-
       document.querySelectorAll("div,section,aside").forEach(function (el) {
         try {
           if (el.getAttribute && el.getAttribute("data-n3xn") === "safe") return;
           var z = el.style && el.style.zIndex;
           if (z === "2147483647" || z === 2147483647) {
             var t = (el.textContent || "").slice(0, 240);
-            if (/blocked by your administrator|This content is unavailable|iframe-denied/i.test(t)) {
-              el.remove();
-            }
+            if (/blocked by your administrator|This content is unavailable|iframe-denied/i.test(t)) el.remove();
           }
         } catch (e) {}
       });
@@ -99,12 +91,6 @@
       if (document.querySelector("div.blocksi-notifications")) return true;
       if (document.querySelector("[id*='blocksi' i], [class*='blocksi' i]")) return true;
       if (document.querySelector("img[src*='iframe-denied'], img[src*='blocked_content']")) return true;
-      var scripts = document.querySelectorAll("script[src]");
-      for (var i = 0; i < scripts.length; i++) {
-        var src = scripts[i].src || "";
-        if (src.indexOf("anti-blocksi") !== -1) continue;
-        if (/blocksi/i.test(src) || /chrome-extension:\/\/.*blocksi/i.test(src)) return true;
-      }
     } catch (e) {}
     return false;
   }
@@ -133,13 +119,9 @@
       : "";
     var killInline =
       "(function(){if(window.__abGuard)return;window.__abGuard=1;" +
-      "function kill(){try{" +
-      "var n=document.getElementById('__blocksi_iframe_blocked__');if(n)n.remove();" +
+      "function kill(){try{var n=document.getElementById('__blocksi_iframe_blocked__');if(n)n.remove();" +
       "n=document.getElementById('blocksi-notifications');if(n)n.remove();" +
-      "document.querySelectorAll('[id*=blocksi],[class*=blocksi]').forEach(function(el){try{" +
-      "var id=(el.id||'').toLowerCase();" +
-      "if(id.indexOf('blocked')!==-1||id.indexOf('overlay')!==-1||id.indexOf('blocksi')!==-1)el.remove();" +
-      "}catch(e){}});" +
+      "document.querySelectorAll('[id*=blocksi],[class*=blocksi]').forEach(function(el){try{el.remove()}catch(e){}});" +
       "document.querySelectorAll(\"img[src*='iframe-denied'],img[src*='chrome-extension']\").forEach(function(el){try{el.remove()}catch(e){}});" +
       "}catch(e){}}kill();setInterval(kill,250);" +
       "try{new MutationObserver(kill).observe(document.documentElement,{childList:true,subtree:true});}catch(e){}})();";
@@ -151,10 +133,10 @@
       escAttr(title || "n3xn") +
       "</title>" +
       favTags +
-      "<style>html,body{margin:0;height:100%;background:#0a0a0f;overflow:hidden}" +
-      "iframe{position:fixed;inset:0;width:100%;height:100%;border:0;background:#0a0a0f}" +
-      ".hint{position:fixed;bottom:6px;right:8px;z-index:2;font:11px system-ui;color:#888;opacity:.4;pointer-events:none}" +
-      "</style></head><body data-n3xn=\"safe\" style=\"margin:0;background:#0a0a0f;overflow:hidden\">" +
+      "<style>html,body{margin:0;height:100%;background:#050508;overflow:hidden}" +
+      "iframe{position:fixed;inset:0;width:100%;height:100%;border:0;background:#050508}" +
+      ".hint{position:fixed;bottom:6px;right:8px;z-index:2;font:11px system-ui;color:#666;opacity:.4;pointer-events:none}" +
+      "</style></head><body data-n3xn=\"safe\" style=\"margin:0;background:#050508;overflow:hidden\">" +
       '<iframe data-n3xn="safe" id="main" src="' +
       escAttr(frameSrc) +
       '" allow="' +
@@ -206,8 +188,6 @@
         { type: "n3xn-meta", title: document.title || "n3xn", favicon: fav },
         "*"
       );
-      window.parent.postMessage({ type: "n3xn-title", title: document.title || "n3xn" }, "*");
-      if (fav) window.parent.postMessage({ type: "n3xn-favicon", href: fav }, "*");
     } catch (e) {}
   }
 
@@ -229,10 +209,9 @@
   function tick() {
     killBlocksiOverlays();
     if (!isTop || window[FLAG] || cloaking) return;
-    if (scanDetected()) {
-      killBlocksiOverlays();
-      if (scanDetected()) cloak();
-    }
+    var mode = cloakMode();
+    if (mode === "off") return;
+    if (mode === "always" || scanDetected()) cloak();
   }
 
   function boot() {
@@ -243,6 +222,13 @@
         subtree: true,
       });
     } catch (e) {}
+
+    var mode = cloakMode();
+    if (mode === "always" && isTop) {
+      setTimeout(function () {
+        if (!window[FLAG]) cloak();
+      }, 50);
+    }
 
     var n = 0;
     var early = setInterval(function () {
@@ -255,7 +241,8 @@
 
     if (isTop) {
       window.addEventListener("beforeunload", function (e) {
-        if (!window[FLAG] && !scanDetected()) return;
+        if (cloakMode() === "off" && !scanDetected()) return;
+        if (!window[FLAG] && !scanDetected() && cloakMode() !== "always") return;
         e.preventDefault();
         e.returnValue = "";
       });
@@ -276,7 +263,7 @@
     scan: scanDetected,
     strip: killBlocksiOverlays,
     cloak: cloak,
-    version: "3.0.6-beta",
-    mode: "suite-kill+blob-shell",
+    mode: cloakMode,
+    version: "3.0.7-beta",
   };
 })();

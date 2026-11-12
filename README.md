@@ -38,11 +38,33 @@ The project brings together tools that are usually separate:
 
 It is designed to be **local-first, extensible, and deployable as static web content**. Network-dependent tools are optional; they are not the same thing as the core local filesystem.
 
-> **Project status:** The source currently identifies the application as **v3.0.9-beta**. This is beta software. Interfaces, commands, and features can change; check the current source and in-app help output when something differs from this guide.
+> **Project status:** The version module currently identifies the application as **v3.0.9-beta**. This is beta software. Interfaces, commands, and features can change; check the current source and in-app help output when something differs from this guide.
+
+### Main-branch implementation snapshot
+
+This README is written against the repository's current `main` tree, not against an older package description or an earlier v3 experiment. A source-tree inspection on 2026-11-12 found the full-size application core alongside the newer v3 modules and pages.
+
+| Area | What is present in the repository | Important qualification |
+|---|---|---|
+| Core application | Full `js/app.js` (~43 KB), plus the VFS, editor, terminal, runner, GitHub, collaboration, and media modules | File presence is not a guarantee that every UI path has been browser-tested |
+| Encrypted VFS | `js/db.js`, `js/crypto.js`, and `js/fs.js` | The existing v2-compatible storage format is the compatibility baseline |
+| Compression | Separate `js/compress.js` N3C1 helper and settings controls | The current `db.js` does not import or call this helper; do not assume VFS records are compressed |
+| Themes and editor settings | `js/themes-catalog.js`, `js/settings-app.js`, `js/monaco-settings.js`, and `/settings/` | The theme catalog declares roughly 50 application/Monaco theme entries; verify a theme in the running app before relying on every editor color |
+| CodeMirror | `js/codemirror-loader.js` | The loader dynamically imports CodeMirror modules; offline use depends on the service worker having cached the needed ESM dependencies |
+| Connectors | `/connectors/` and `js/connectors-app.js` | Connector values are currently stored in browser `localStorage` without encryption |
+| Anti-Blocksi | `js/anti-blocksi.js`, included by the main page and the Settings/Connectors pages | Experimental page-level behavior only; it is not a reliable way to defeat managed-device, browser, or network controls |
+| Minecraft | `mc/index.html` (~25.1 MB in the repository tree) and `js/minecraft.js` | The file is present; its runtime, offline behavior, and relay connectivity still need to be tested in the target browser |
+| Service worker | Root `sw.js`, with separate app/runtime/CDN cache logic and local dependency proxy paths | Offline availability depends on successful first-time downloads, cache quota, and browser retention |
+
+**Version-label caveat:** `js/version.js` currently exports `3.0.9-beta`, but several other files still contain older labels (including the root page, Settings page, Connectors page, manifest, package notes, and service-worker cache/comment identifiers). The badge above follows `js/version.js`; the repository still needs a coordinated version-label/cache-name cleanup. Do not use an old page title or cache key as the authoritative release version.
+
+**Repository shape:** the root is a static-site deployment; there is no root `functions/` directory in the current tree. The repository also contains dedicated `explorer/`, `cloaker/`, `settings/`, `connectors/`, and `mc/` pages, plus a substantial `jspaint/` subtree.
+
 
 ## 🧭 Contents
 
 - [Highlights](#-highlights)
+- [Main-branch implementation snapshot](#-main-branch-implementation-snapshot)
 - [Quick start](#-quick-start)
 - [Accounts and encrypted storage](#-accounts-and-encrypted-storage)
 - [Filesystem](#-filesystem)
@@ -56,6 +78,9 @@ It is designed to be **local-first, extensible, and deployable as static web con
 - [Storage backends](#-storage-backends)
 - [Offline support and PWA](#-offline-support-and-pwa)
 - [Settings and customization](#-settings-and-customization)
+- [Connectors and credential safety](#-connectors-and-credential-safety)
+- [Installed-app behavior and anti-Blocksi](#-installed-app-behavior-and-anti-blocksi)
+- [Minecraft client](#-minecraft-client)
 - [Debugging and diagnostics](#-debugging-and-diagnostics)
 - [Project layout](#-project-layout)
 - [Deployment](#-deployment)
@@ -668,6 +693,8 @@ Aliases include **idb** and **opfs**.
 
 Backend availability depends on browser support and current application configuration. The storage abstraction does not imply that every backend has identical encryption, durability, or metadata behavior. In particular, the OPFS and Cache API adapters have different storage characteristics from the normal encrypted IndexedDB file path.
 
+**Compatibility rule:** the existing IndexedDB encryption/encoding path is the v2 data-compatibility baseline. The standalone N3C1 compression helper is not currently wired into `js/db.js`; changing a compression preference does not mean existing records were migrated or that new records are compressed. Do not insert compression into the AES/base64 path without a versioned envelope, legacy read tests, round-trip tests, and import/export compatibility tests.
+
 ---
 
 ## 🌙 Offline support and PWA
@@ -714,6 +741,8 @@ The settings system includes editor and application customization.
 
 The theme catalog includes a broad collection of application and Monaco themes, including the n3xn dark theme, OLED-style themes, and other color schemes.
 
+The current catalog source describes approximately 50 themes and pairs application CSS variables with Monaco theme identifiers. The dedicated `/settings/` page also exposes Monaco editor preferences and a CodeMirror-related editor choice/configuration path. The CodeMirror loader uses ESM imports (with a service-worker proxy path when controlled); a loader being present does not by itself prove every editor workflow is fully offline or interchangeable with Monaco.
+
 ### Editor preferences
 
 Depending on the editor integration, settings include font family and size, line height and letter spacing, ligatures, minimap visibility and placement, word wrap and tab size, cursor style and blinking, line numbers and whitespace rendering, bracket pair colorization and guides, folding, sticky scroll, and suggestions.
@@ -729,6 +758,55 @@ The optional N3C1 compression module provides configurable levels:
     ultra
 
 Compression is opt-in and defaults to **off**. The module is designed to leave legacy/unwrapped data readable and fall back safely for ordinary uncompressed payloads. Changing the setting does not automatically mean every storage path is compressed; the module must be wired into the relevant path.
+
+---
+
+## 🔌 Connectors and credential safety
+
+The repository includes a dedicated `/connectors/` page and a connector registry in `js/connectors-app.js`. The current built-in list contains 16 connector types:
+
+- OpenAI, Anthropic, Google AI / Gemini, and Groq.
+- GitHub and GitLab.
+- Cloudflare Workers.
+- WSS collaboration/chat relay.
+- Custom HTTP.
+- S3-compatible storage.
+- Supabase and Firebase.
+- Discord and Telegram.
+- Notion and Spotify.
+
+The connector page provides fields for the configured service's endpoint, model, account identifier, or credential, depending on the connector. This is a configuration UI, not a universal integration guarantee: a saved connector does not automatically mean every feature in n3xn knows how to call that service.
+
+### Critical credential-storage detail
+
+**Current connector values are stored as plain JSON in browser `localStorage` under `n3xn_connectors_v1`.** Password-type inputs only mask the value on screen; they do not encrypt it. This is separate from the encrypted IndexedDB VFS file path.
+
+Until connector storage is redesigned and audited, do not save high-privilege, long-lived, or production credentials here. Prefer short-lived or narrowly scoped tokens, never commit secrets into VFS files or GitHub, and revoke any credential that may have been exposed. A browser extension, injected script, or successful XSS in the same origin may be able to read localStorage.
+
+For a production-grade connector design, credentials should be protected by a separately reviewed secret-storage strategy or kept behind a trusted server-side integration. A static browser app cannot safely conceal a service secret from the browser user or from code executing in that origin.
+
+---
+
+## 🛡️ Installed-app behavior and anti-Blocksi
+
+The repository includes `js/anti-blocksi.js`, and the current main page, Settings page, and Connectors page load it. The script contains page-level detection and overlay-handling logic, with a configurable mode stored as `n3xn_cloak_mode`.
+
+This feature is experimental. It is **not** a security boundary, privacy guarantee, or dependable way to bypass school/device management, browser extensions, network filtering, or administrator policy. Installed/PWA mode does not make a page invisible to browser extensions or to the operating system. Behavior can vary across ChromeOS versions, browser policies, extension versions, and hosting origins.
+
+If the script causes a blank page, redirect loop, broken iframe, or startup failure, disable its mode or remove the script include while debugging the core app. Keep the ordinary VFS usable independently of this optional behavior.
+
+---
+
+## 🎮 Minecraft client
+
+A large single-file client is present at `/mc/index.html` (approximately 25.1 MB in the current Git tree). The accompanying project discussion describes this as the preferred fast Eaglercraft 1.8 WASM-GC client, styled for n3xn.
+
+- Open it at `/mc/index.html` on the deployed site.
+- Keep the client file separate from the VFS application modules; it is a large standalone payload.
+- Offline startup depends on the browser having cached the file and any additional runtime resources the client requests.
+- Multiplayer depends on the client's supported relay/network configuration and a reachable compatible relay; a cached HTML file alone does not provide multiplayer service.
+
+The repository also contains `js/minecraft.js` for application-side Minecraft integration. The actual game client and its relay behavior should be tested in the browser and on the target deployment before being described as fully working or fully offline.
 
 ---
 

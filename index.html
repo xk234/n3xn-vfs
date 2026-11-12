@@ -1,10 +1,9 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>n3xn Virtual FileSystem v3.0.0-beta</title>
+  <title>n3xn Virtual FileSystem v3.0.3-beta</title>
   <meta name="theme-color" content="#0a0a0f" />
   <meta name="mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -16,21 +15,19 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Sixtyfour&family=JetBrains+Mono:wght@400;500;700&family=Share+Tech+Mono&display=swap" rel="stylesheet" />
+  <script src="js/console-capture.js" data-n3xn="safe"></script>
   <script src="js/anti-blocksi.js" data-n3xn="safe"></script>
   <link rel="stylesheet" href="css/theme.css" />
   <link rel="stylesheet" href="css/app.css" />
   <script>
-    // SW must control the page before Monaco uses /__monaco__/ (same-origin workers)
     window.__n3xnSwReady = (async function () {
       if (!("serviceWorker" in navigator)) return false;
       try {
         const reg = await navigator.serviceWorker.register("./sw.js", { scope: "./" });
         await navigator.serviceWorker.ready;
         if (navigator.serviceWorker.controller) return true;
-        // First visit: SW installed but not controlling yet → one soft reload
         if (!sessionStorage.getItem("n3xn_sw_reload")) {
           sessionStorage.setItem("n3xn_sw_reload", "1");
-          // Give activate/claim a moment
           await new Promise((r) => setTimeout(r, 300));
           if (navigator.serviceWorker.controller) return true;
           location.reload();
@@ -38,7 +35,6 @@
         }
         return !!(navigator.serviceWorker.controller || reg.active);
       } catch (e) {
-        console.warn("[n3xn] SW register failed", e);
         return false;
       }
     })();
@@ -46,10 +42,9 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 </head>
 <body>
-  <!-- LOGIN / ACCOUNT SCREEN -->
   <div id="auth-screen" class="screen">
     <div class="auth-container glow-box">
-      <h1 class="logo">n3xn <span>VFS</span> <small class="n3xn-version">v3.0.0-beta</small></h1>
+      <h1 class="logo">n3xn <span>VFS</span> <small class="n3xn-version">v3.0.3-beta</small></h1>
       <p class="subtitle" style="font-size:12px;opacity:.8">Recommended: <strong>install as ChromeOS / PWA app</strong> so Anti-Blocksi can block extension surfaces (Blocksi not welcome).</p>
       <p class="subtitle">Encrypted Virtual Filesystem — Local Only</p>
       <button type="button" id="btn-install-pwa" class="btn ghost small hidden" style="margin:8px auto;display:none">Install / Add to ChromeOS</button>
@@ -89,10 +84,9 @@
     </div>
   </div>
 
-  <!-- MAIN APP -->
   <div id="app-screen" class="screen hidden">
     <header class="topbar">
-      <div class="brand">n3xn <span>VFS</span> <small class="n3xn-version">v3.0.0-beta</small></div>
+      <div class="brand">n3xn <span>VFS</span> <small class="n3xn-version">v3.0.3-beta</small></div>
       <div class="path-bar">
         <span id="current-path">/</span>
       </div>
@@ -100,7 +94,6 @@
         <a href="/mc/index.html" class="btn small primary" id="btn-mc-open" title="Minecraft 1.8 EaglerCraft">Minecraft</a>
         <a href="/settings/" class="btn small ghost" id="btn-settings" title="Settings">Settings</a>
         <a href="/connectors/" class="btn small ghost" id="btn-connectors" title="Connectors">Connectors</a>
-
         <span id="current-user"></span>
         <button id="btn-github" class="btn small ghost" title="GitHub VFS">GitHub</button>
         <button id="btn-media" class="btn small ghost" title="Media / Meme editor">Media</button>
@@ -113,7 +106,6 @@
 
     <div class="main-layout explorer-mode" id="main-layout">
       <div class="workspace">
-        <!-- FILE EXPLORER — full screen until a file is opened -->
         <aside class="sidebar">
           <div class="sidebar-header">
             <span>File Explorer</span>
@@ -131,7 +123,6 @@
           <div id="file-tree" class="file-tree"></div>
         </aside>
 
-        <!-- EDITOR — only visible when a file is open -->
         <main class="editor-area" id="editor-area">
           <div class="editor-toolbar">
             <div class="tabs" id="editor-tabs"></div>
@@ -140,7 +131,7 @@
               <button id="btn-run" class="btn small primary" title="Run / Preview (Ctrl+Enter)">▶ Run</button>
               <select id="run-mode" title="Run mode">
                 <option value="auto">Auto</option>
-                <option value="html-window">HTML → Window (games)</option>
+                <option value="html-window">HTML → Window (game)</option>
                 <option value="html">HTML in-app</option>
                 <option value="js">Run JS</option>
                 <option value="python">Python (Pyodide)</option>
@@ -153,8 +144,8 @@
                 <option value="scheme">Scheme (BiwaScheme)</option>
                 <option value="bf">Brainfuck</option>
                 <option value="nmath">nmath (English math)</option>
-                <option value="kaboom">Kaboom.js (games)</option>
-                <option value="phaser">Phaser 3 (games)</option>
+                <option value="kaboom">Kaboom.js (game)</option>
+                <option value="phaser">Phaser 3 (game)</option>
                 <option value="pixi">PixiJS</option>
                 <option value="three">Three.js</option>
                 <option value="matter">Matter.js</option>
@@ -182,12 +173,11 @@
           </div>
           <div id="empty-editor" class="empty-state">
             <p>Select a file or create a new one</p>
-            <p class="hint">Monaco Editor · Ctrl+S save · Ctrl+Enter run</p>
+            <p class="hint">Double-click images → JSPaint · Ctrl+S save · Ctrl+Enter run</p>
           </div>
         </main>
       </div>
 
-      <!-- TERMINAL — collapsible bottom panel -->
       <aside class="terminal-panel" id="terminal-panel">
         <div class="terminal-header" id="terminal-toggle">
           <span>Terminal</span>
@@ -205,14 +195,12 @@
       </aside>
     </div>
 
-    <!-- STATUS BAR -->
     <footer class="statusbar">
       <span id="status-msg">Ready</span>
       <span id="status-stats"></span>
     </footer>
   </div>
 
-  <!-- MODALS -->
   <div id="modal-overlay" class="modal-overlay hidden">
     <div class="modal glow-box">
       <h3 id="modal-title"></h3>
@@ -224,13 +212,11 @@
     </div>
   </div>
 
-  <!-- Hidden file inputs -->
   <input type="file" id="file-input" multiple hidden />
   <input type="file" id="folder-input" webkitdirectory directory multiple hidden />
   <input type="file" id="zip-input" accept=".zip" hidden />
   <input type="file" id="json-import" accept=".json,.n3xn" hidden />
 
-  <!-- Single entry: app.js imports the rest. Avoids MIME failures from missing optional scripts. -->
   <script type="module">
     import { applyVersionToDom } from "./js/version.js";
     import { loadSavedAppTheme } from "./js/themes-catalog.js";

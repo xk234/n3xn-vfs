@@ -1,7 +1,7 @@
 /**
- * n3xn VFS v3.0.8-beta — Anti-Blocksi
- * Modes: localStorage n3xn_cloak_mode = always | on-detect | off
- * #blocksi-notifications auto-cloaks when mode !== off.
+ * n3xn VFS v3.0.10-beta — Anti-Blocksi
+ * Modes: always | on-detect | off
+ * Installed app / standalone → force always cloak (+ about:blank if blob blocked)
  */
 (function n3xnAntiBlocksi() {
   "use strict";
@@ -44,11 +44,27 @@
     "screen-wake-lock; serial; speaker-selection; storage-access; usb; " +
     "web-share; window-management; xr-spatial-tracking";
 
+  function isInstalledApp() {
+    try {
+      if (window.matchMedia && window.matchMedia("(display-mode: standalone)").matches) return true;
+      if (window.matchMedia && window.matchMedia("(display-mode: fullscreen)").matches) return true;
+      if (window.matchMedia && window.matchMedia("(display-mode: minimal-ui)").matches) return true;
+      if (window.navigator.standalone === true) return true;
+      if (document.referrer && document.referrer.indexOf("android-app://") === 0) return true;
+    } catch (e) {}
+    return false;
+  }
+
   function cloakMode() {
     try {
+      if (isInstalledApp()) {
+        var forced = localStorage.getItem("n3xn_cloak_mode");
+        if (forced === "off") return "off";
+        return "always";
+      }
       return localStorage.getItem("n3xn_cloak_mode") || "always";
     } catch (e) {
-      return "on-detect";
+      return "always";
     }
   }
 
@@ -71,16 +87,6 @@
             el.remove();
           } catch (e) {}
         });
-      document.querySelectorAll("div,section,aside").forEach(function (el) {
-        try {
-          if (el.getAttribute && el.getAttribute("data-n3xn") === "safe") return;
-          var z = el.style && el.style.zIndex;
-          if (z === "2147483647" || z === 2147483647) {
-            var t = (el.textContent || "").slice(0, 240);
-            if (/blocked by your administrator|This content is unavailable|iframe-denied/i.test(t)) el.remove();
-          }
-        } catch (e) {}
-      });
     } catch (e) {}
   }
 
@@ -113,7 +119,7 @@
     var favTags = fav
       ? '<link rel="shortcut icon" href="' +
         escAttr(fav) +
-        '"><link rel="icon" id="n3xn-shell-fav" href="' +
+        '"><link rel="icon" href="' +
         escAttr(fav) +
         '">' 
       : "";
@@ -122,7 +128,6 @@
       "function kill(){try{var n=document.getElementById('__blocksi_iframe_blocked__');if(n)n.remove();" +
       "n=document.getElementById('blocksi-notifications');if(n)n.remove();" +
       "document.querySelectorAll('[id*=blocksi],[class*=blocksi]').forEach(function(el){try{el.remove()}catch(e){}});" +
-      "document.querySelectorAll(\"img[src*='iframe-denied'],img[src*='chrome-extension']\").forEach(function(el){try{el.remove()}catch(e){}});" +
       "}catch(e){}}kill();setInterval(kill,250);" +
       "try{new MutationObserver(kill).observe(document.documentElement,{childList:true,subtree:true});}catch(e){}})();";
 
@@ -134,33 +139,46 @@
       "</title>" +
       favTags +
       "<style>html,body{margin:0;height:100%;background:#050508;overflow:hidden}" +
-      "iframe{position:fixed;inset:0;width:100%;height:100%;border:0;background:#050508}" +
-      ".hint{position:fixed;bottom:6px;right:8px;z-index:2;font:11px system-ui;color:#666;opacity:.4;pointer-events:none}" +
-      "</style></head><body data-n3xn=\"safe\" style=\"margin:0;background:#050508;overflow:hidden\">" +
+      "iframe{position:fixed;inset:0;width:100%;height:100%;border:0}</style></head><body data-n3xn=\"safe\">" +
       '<iframe data-n3xn="safe" id="main" src="' +
       escAttr(frameSrc) +
       '" allow="' +
       ALLOW +
-      '" referrerpolicy="no-referrer" ' +
-      'data-blocksi-src="https://www.google.com" data-blocksi-processed="true" loading="eager" ' +
-      'style="position:fixed;inset:0;width:100%;height:100%;border:0;margin:0"></iframe>' +
-      '<div class="hint" data-n3xn="safe">n3xn · blob top · Blocksi scrub</div>' +
+      '" referrerpolicy="no-referrer" data-blocksi-src="https://www.google.com" data-blocksi-processed="true"></iframe>' +
       "<script>(function(){window.__n3xnCloaked=true;try{window.opener=null;}catch(e){}" +
       "window.addEventListener('beforeunload',function(e){e.preventDefault();e.returnValue='';});" +
       "function setFav(u){if(!u)return;['icon','shortcut icon'].forEach(function(rel){" +
       "var l=document.querySelector('link[rel=\"'+rel+'\"]');" +
       "if(!l){l=document.createElement('link');l.rel=rel;document.head.appendChild(l);}l.href=u;});}" +
-      "window.addEventListener('message',function(ev){" +
-      "if(!ev||!ev.data)return;" +
+      "window.addEventListener('message',function(ev){if(!ev||!ev.data)return;" +
       "if(ev.data.type==='n3xn-title'&&typeof ev.data.title==='string')document.title=ev.data.title;" +
       "if(ev.data.type==='n3xn-favicon'&&typeof ev.data.href==='string')setFav(ev.data.href);" +
-      "if(ev.data.type==='n3xn-meta'){" +
-      "if(typeof ev.data.title==='string')document.title=ev.data.title;" +
-      "if(typeof ev.data.favicon==='string')setFav(ev.data.favicon);}" +
-      "});" +
+      "if(ev.data.type==='n3xn-meta'){if(typeof ev.data.title==='string')document.title=ev.data.title;" +
+      "if(typeof ev.data.favicon==='string')setFav(ev.data.favicon);}});" +
       killInline +
       "})();</script></body></html>"
     );
+  }
+
+  function cloakAboutBlank(frameSrc, title, fav) {
+    try {
+      var html = buildShell(frameSrc, title, fav);
+      location.replace("about:blank");
+      setTimeout(function () {
+        try {
+          document.open();
+          document.write(html);
+          document.close();
+        } catch (e) {
+          console.warn("[anti-blocksi] about:blank write failed", e);
+          cloaking = false;
+          window[FLAG] = false;
+        }
+      }, 30);
+    } catch (e) {
+      cloaking = false;
+      window[FLAG] = false;
+    }
   }
 
   function cloak() {
@@ -171,10 +189,29 @@
     try {
       var u = new URL(location.href);
       u.searchParams.set(FRAMED, "1");
-      var html = buildShell(u.toString(), document.title || "n3xn", favHref());
+      var frameSrc = u.toString();
+      var title = document.title || "n3xn";
+      var fav = favHref();
+      var html = buildShell(frameSrc, title, fav);
       var blobUrl = URL.createObjectURL(new Blob([html], { type: "text/html" }));
-      location.replace(blobUrl);
+      try {
+        location.replace(blobUrl);
+      } catch (e1) {
+        console.warn("[anti-blocksi] blob replace failed, about:blank fallback", e1);
+        cloakAboutBlank(frameSrc, title, fav);
+      }
+      setTimeout(function () {
+        try {
+          if (location.protocol !== "blob:" && !window.__n3xnFramed) {
+            console.warn("[anti-blocksi] still on https — about:blank fallback");
+            cloaking = false;
+            window[FLAG] = false;
+            cloakAboutBlank(frameSrc, title, fav);
+          }
+        } catch (e) {}
+      }, 400);
     } catch (e) {
+      console.warn("[anti-blocksi] cloak error", e);
       cloaking = false;
       window[FLAG] = false;
     }
@@ -183,9 +220,8 @@
   function publishMeta() {
     try {
       if (!window.__n3xnFramed || !window.parent) return;
-      var fav = favHref();
       window.parent.postMessage(
-        { type: "n3xn-meta", title: document.title || "n3xn", favicon: fav },
+        { type: "n3xn-meta", title: document.title || "n3xn", favicon: favHref() },
         "*"
       );
     } catch (e) {}
@@ -217,17 +253,28 @@
   function boot() {
     killBlocksiOverlays();
     try {
-      new MutationObserver(tick).observe(document.documentElement, {
-        childList: true,
-        subtree: true,
-      });
+      new MutationObserver(tick).observe(document.documentElement, { childList: true, subtree: true });
     } catch (e) {}
 
     var mode = cloakMode();
     if (mode === "always" && isTop) {
       setTimeout(function () {
         if (!window[FLAG]) cloak();
-      }, 50);
+      }, isInstalledApp() ? 20 : 50);
+      if (isInstalledApp()) {
+        setTimeout(function () {
+          if (!window[FLAG] && location.protocol !== "blob:") {
+            cloaking = false;
+            cloak();
+          }
+        }, 500);
+        setTimeout(function () {
+          if (!window[FLAG] && location.protocol !== "blob:") {
+            cloaking = false;
+            cloak();
+          }
+        }, 1500);
+      }
     }
 
     var n = 0;
@@ -236,7 +283,6 @@
       n++;
       if (n > 80 || window[FLAG]) clearInterval(early);
     }, 250);
-
     setInterval(tick, 1000);
 
     if (isTop) {
@@ -249,12 +295,8 @@
     }
   }
 
-  if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", boot);
-  } else {
-    boot();
-  }
-
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", boot);
+  else boot();
   try {
     killBlocksiOverlays();
   } catch (e) {}
@@ -264,6 +306,7 @@
     strip: killBlocksiOverlays,
     cloak: cloak,
     mode: cloakMode,
-    version: "3.0.8-beta",
+    isInstalledApp: isInstalledApp,
+    version: "3.0.10-beta",
   };
 })();

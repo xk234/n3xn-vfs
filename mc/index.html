@@ -1,35 +1,104 @@
 <!DOCTYPE html>
 <!--
-EaglyMC (u7 Legacy) 1.8 WASM-GC — n3xn custom client
-Primary shared-worlds relay: wss://relay.shhnowisnottheti.me/
+  n3xn · EaglyMC 1.8 WASM-GC launcher
+  Primary shared-worlds relay: wss://relay.shhnowisnottheti.me/
 -->
-<html style="width:100%;height:100%;background-color:black;">
+<html lang="en">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0" />
-<meta name="description" content="n3xn Minecraft 1.8 EaglercraftX WASM-GC" />
-<meta name="keywords" content="eaglercraft, eaglercraftx, minecraft, 1.8, n3xn" />
-<title>n3xn · Minecraft 1.8</title>
-<meta property="og:locale" content="en-US" />
-<meta property="og:type" content="website" />
-<meta property="og:title" content="n3xn · Minecraft 1.8" />
-<meta property="og:description" content="EaglyMC WASM-GC offline client · n3xn VFS" />
-<script src="../js/anti-blocksi.js" data-n3xn="safe"></script>
-<script src="../js/mc-n3xn.js" data-n3xn="safe"></script>
-<script type="text/javascript" src="../mc/game-launch-opts.js"></script>
-<script type="text/javascript" src="../mc/loader-1.js"></script>
-<script type="text/javascript" src="../mc/loader-2.js"></script>
-<link type="image/svg+xml" rel="shortcut icon" href="../mc/favicon.ico" />
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0" />
+  <meta name="description" content="n3xn Minecraft 1.8 EaglercraftX WASM-GC" />
+  <meta name="theme-color" content="#0a0a0f" />
+  <title>n3xn · Minecraft 1.8</title>
+  <meta property="og:title" content="n3xn · Minecraft 1.8" />
+  <meta property="og:description" content="EaglyMC WASM-GC · offline · n3xn VFS" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Sixtyfour&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="launch.css" />
+  <link rel="icon" href="favicon.ico" type="image/svg+xml" />
+  <script src="../js/anti-blocksi.js" data-n3xn="safe"></script>
+  <script src="../js/mc-n3xn.js" data-n3xn="safe"></script>
+  <script src="game-launch-opts.js"></script>
+  <script src="loader-1.js"></script>
+  <script src="loader-2.js"></script>
 </head>
-<body style="margin:0px;width:100%;height:100%;overflow:hidden;background-color:white;" id="game_frame">
-<div style="margin:0px;width:100%;height:100%;font-family:sans-serif;display:flex;align-items:center;user-select:none;" id="launch_countdown_screen">
-<div style="margin:auto;text-align:center;">
-<h1 style="margin:0 0 8px;font-size:1.35rem">n3xn · <span style="color:#AA0000">EaglyMC</span> 1.8</h1>
-<p style="opacity:.75;margin:0 0 12px;font-size:13px">WASM-GC · shared worlds via <code>relay.shhnowisnottheti.me</code></p>
-<h2 style="font-size:1.1rem">Game will launch in <span id="launchCountdownNumber">5</span>...</h2>
-<div style="border:2px solid black;width:100%;height:15px;padding:1px;margin-bottom:12vh;"><div id="launchCountdownProgress" style="background-color:#555555;width:0%;height:100%;"></div></div>
-<p style="margin-top:16px;"><button id="skipCountdown" autofocus>Skip Countdown</button></p>
-</div>
-</div>
+<body id="game_frame">
+  <div id="launch_countdown_screen" class="launch" data-n3xn="safe">
+    <div class="launch-bg" aria-hidden="true"></div>
+    <div class="launch-shell glow-box">
+      <header class="launch-head">
+        <div class="brand">
+          <span class="brand-mark">n3xn</span>
+          <span class="brand-sep">·</span>
+          <span class="brand-name">EaglyMC</span>
+          <span class="brand-ver">1.8 WASM-GC</span>
+        </div>
+        <p class="brand-sub">Offline client · shared worlds via Eagler Public relay</p>
+      </header>
+
+      <section class="launch-grid">
+        <div class="panel">
+          <h2 class="panel-title">Launch</h2>
+          <div class="countdown-wrap">
+            <div class="countdown-num" id="launchCountdownNumber">30</div>
+            <div class="countdown-label">seconds until auto-start</div>
+            <div class="progress" role="progressbar" aria-valuemin="0" aria-valuemax="100">
+              <div class="progress-bar" id="launchCountdownProgress"></div>
+            </div>
+          </div>
+          <div class="btn-row">
+            <button type="button" class="btn primary" id="btnLaunchNow" autofocus>Launch now</button>
+            <button type="button" class="btn" id="btnPause">Pause timer</button>
+            <button type="button" class="btn" id="btnReset">Reset 30s</button>
+          </div>
+          <label class="check">
+            <input type="checkbox" id="optAutoLaunch" checked />
+            Auto-launch when timer ends
+          </label>
+        </div>
+
+        <div class="panel">
+          <h2 class="panel-title">Shared worlds relay</h2>
+          <p class="hint">Primary relay for LAN / shared worlds on this client.</p>
+          <select id="optRelay" class="select">
+            <option value="wss://relay.shhnowisnottheti.me/" selected>Eagler Public (shh) — n3xn default</option>
+            <option value="wss://relay.deev.is/">lax1dude #1 (deev.is)</option>
+            <option value="wss://relay.lax1dude.net/">lax1dude #2</option>
+          </select>
+          <label class="field">
+            <span>Custom relay WSS</span>
+            <input type="text" id="optRelayCustom" class="input" placeholder="wss://…" spellcheck="false" />
+          </label>
+        </div>
+
+        <div class="panel panel-wide">
+          <h2 class="panel-title">Public servers <span class="muted">(copy IP · join in Multiplayer)</span></h2>
+          <p class="hint">Copy the WSS address, then use Direct Connect / Add Server in-game.</p>
+          <div id="serverList" class="server-list"></div>
+        </div>
+
+        <div class="panel">
+          <h2 class="panel-title">Client</h2>
+          <ul class="meta">
+            <li><span>Assets</span><code id="assetsPath">assets.epw</code></li>
+            <li><span>Worlds DB</span><code>worlds-n3xn</code></li>
+            <li><span>Anti-Blocksi</span><code>on</code></li>
+          </ul>
+          <label class="check">
+            <input type="checkbox" id="optPrefetch" checked />
+            Prefetch & cache EPW before launch (faster next time)
+          </label>
+          <div class="status" id="launchStatus">Ready — configure options, then launch.</div>
+        </div>
+      </section>
+
+      <footer class="launch-foot">
+        <span>n3xn VFS · Minecraft</span>
+        <a href="../">← Back to VFS</a>
+      </footer>
+    </div>
+  </div>
+  <script src="launch.js" data-n3xn="safe"></script>
 </body>
 </html>

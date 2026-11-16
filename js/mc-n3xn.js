@@ -1,6 +1,7 @@
 /**
  * n3xn Minecraft overlay v3.0.10-beta
- * Eagler Public relays primary + public server list (copy IP)
+ * Primary shared-worlds relay: wss://relay.shhnowisnottheti.me/
+ * Public server list (copy IP) + light Blocksi scrub
  */
 (function n3xnMc() {
   "use strict";
@@ -8,9 +9,9 @@
   window.__n3xnMcBooted = true;
 
   var PUBLIC_RELAYS = [
-    { addr: "wss://relay.deev.is/", comment: "Eagler Public · shared worlds (primary)", primary: true },
-    { addr: "wss://relay.lax1dude.net/", comment: "Eagler Public #2", primary: false },
-    { addr: "wss://relay.shhnowisnottheti.me/", comment: "Eagler Public #3 (ayunami)", primary: false },
+    { addr: "wss://relay.shhnowisnottheti.me/", comment: "Eagler Public · shared worlds (n3xn default)", primary: true },
+    { addr: "wss://relay.deev.is/", comment: "lax1dude relay #1", primary: false },
+    { addr: "wss://relay.lax1dude.net/", comment: "lax1dude relay #2", primary: false },
   ];
 
   var PUBLIC_SERVERS = [
@@ -34,11 +35,11 @@
     try {
       window.eaglercraftXOpts = window.eaglercraftXOpts || {};
       window.eaglercraftXOpts.container = window.eaglercraftXOpts.container || "game_frame";
-      window.eaglercraftXOpts.worldsDB = window.eaglercraftXOpts.worldsDB || "worlds";
+      window.eaglercraftXOpts.worldsDB = window.eaglercraftXOpts.worldsDB || "worlds-n3xn";
       window.eaglercraftXOpts.relays = PUBLIC_RELAYS.map(function (r) {
         return { addr: r.addr, comment: r.comment, primary: !!r.primary };
       });
-      console.info("[n3xn-mc] relays → Eagler Public primary", PUBLIC_RELAYS[0].addr);
+      console.info("[n3xn-mc] primary relay", PUBLIC_RELAYS[0].addr);
     } catch (e) {
       console.warn("[n3xn-mc] relay patch failed", e);
     }
@@ -46,7 +47,7 @@
 
   function brandTitle() {
     try {
-      document.title = "n3xn · Minecraft 1.8 (EaglercraftX WASM-GC)";
+      document.title = "n3xn · Minecraft 1.8 (EaglyMC WASM-GC)";
     } catch (_) {}
   }
 
@@ -93,7 +94,7 @@
       '<span style="opacity:.65;font-size:11px">copy IP · join in Multiplayer</span>' +
       '<button type="button" id="n3xn-mc-hide" style="margin-left:auto;cursor:pointer;border:1px solid #444;background:#1a1a28;color:#fff;border-radius:6px;padding:2px 8px">Hide</button>' +
       "</div>" +
-      '<p style="margin:0 0 8px;opacity:.75;font-size:11px">This client may not direct-connect. Copy WSS, then Direct Connect / Add Server in-game. Shared worlds use <b>Eagler Public</b> (<code style="color:#9cf">wss://relay.deev.is/</code>).</p>' +
+      '<p style="margin:0 0 8px;opacity:.75;font-size:11px">Copy WSS then Direct Connect / Add Server in-game. Shared worlds primary: <code style="color:#9cf">wss://relay.shhnowisnottheti.me/</code></p>' +
       '<div id="n3xn-mc-list"></div>' +
       '<p style="margin:8px 0 0;opacity:.55;font-size:10px">Anti-Blocksi · install as ChromeOS app for max cloak</p>' +
       "</div>";

@@ -1,6 +1,6 @@
 
 /* n3xn VFS SW v3.0.0-beta — shell + Monaco/CDN/Pyodide + settings/connectors/mc */
-const SHELL = "n3xn-shell-v3-0-0";
+const SHELL = "n3xn-shell-v3-0-1";
 const MONACO = "n3xn-monaco-v4";
 const PYODIDE_CACHE = "n3xn-pyodide-v1";
 const CDN_CACHE = "n3xn-cdn-v2";

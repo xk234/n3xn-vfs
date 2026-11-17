@@ -161,20 +161,13 @@
       window.MonacoEnvironment = {
         getWorkerUrl: function (_id, label) {
           const map = {
-            json: "language/json/jsonn            css: "language/css/cssWorker.js",
-            html: "language/html/htmlWorker.js",
-            typescript: "language/typescript/tsWorker.js",
-            javascript: "language/typescript/tsWorker.js",
-          };
-          // fix accidental truncation in map - full paths:
-          const full = {
             json: "language/json/jsonWorker.js",
             css: "language/css/cssWorker.js",
             html: "language/html/htmlWorker.js",
             typescript: "language/typescript/tsWorker.js",
             javascript: "language/typescript/tsWorker.js",
           };
-          return MONACO_BASE + "/" + (full[label] || "base/worker/workerMain.js");
+          return MONACO_BASE + "/" + (map[label] || "base/worker/workerMain.js");
         },
       };
       window.require.config({ paths: { vs: MONACO_BASE } });

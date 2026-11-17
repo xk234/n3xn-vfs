@@ -1,10 +1,10 @@
 /**
- * n3xn VFS v3.0.10-beta
+ * n3xn VFS v3.0.11-beta
  */
-export const VERSION = "3.0.10-beta";
+export const VERSION = "3.0.11-beta";
 export const VERSION_LABEL = "v" + VERSION;
 export const CODENAME =
-  "MC Eagler Public relays · server list · installed-app blob cloak";
+  "VS Code explorer · polished modals · FS bridge sync";
 
 export function applyVersionToDom() {
   document.querySelectorAll(".n3xn-version, #n3xn-version").forEach((el) => {

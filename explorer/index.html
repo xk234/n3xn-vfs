@@ -3,43 +3,26 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>n3xn Explorer v3.0.9-beta</title>
+  <title>n3xn Explorer</title>
   <meta name="theme-color" content="#050508" />
   <script src="../js/console-capture.js" data-n3xn="safe"></script>
   <script src="../js/anti-blocksi.js" data-n3xn="safe"></script>
   <link rel="stylesheet" href="../css/theme.css" />
   <link rel="stylesheet" href="../css/app.css" />
   <link rel="stylesheet" href="../css/v3-ui.css" />
-  <style>
-    html, body { height: 100%; margin: 0; overflow: hidden; background: var(--bg, #050508); color: var(--text, #e8e8f0); font-family: var(--font-ui, system-ui, monospace); }
-    .exp-shell { display: flex; flex-direction: column; height: 100%; max-height: 100dvh; }
-    .exp-top { flex: 0 0 auto; padding: 10px 14px; border-bottom: 1px solid var(--border, #1a1a28); display: flex; gap: 12px; align-items: center; background: var(--bg-panel, #0a0a0f); }
-    .exp-top a { color: var(--accent, #fff); text-decoration: none; opacity: .85; }
-    .exp-top a:hover { opacity: 1; }
-    #explorer-root { flex: 1; min-height: 0; }
-    .exp-app { display: grid; grid-template-columns: 280px 1fr; height: 100%; }
-    .exp-sidebar { border-right: 1px solid var(--border, #1a1a28); display: flex; flex-direction: column; min-height: 0; background: var(--bg-panel, #0a0a0f); }
-    .exp-side-head { padding: 10px 12px; border-bottom: 1px solid var(--border, #1a1a28); }
-    .exp-path { padding: 6px 12px; font-size: 11px; color: var(--text-dim, #888); word-break: break-all; }
-    .exp-list { flex: 1; overflow: auto; padding: 6px; }
-    .exp-item { display: flex; gap: 8px; align-items: center; padding: 6px 8px; border-radius: 6px; cursor: pointer; font-size: 13px; }
-    .exp-item:hover { background: rgba(255,255,255,.06); }
-    .exp-main { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
-    .exp-tabs { display: flex; gap: 4px; padding: 6px; border-bottom: 1px solid var(--border, #1a1a28); overflow-x: auto; }
-    .exp-tab { padding: 4px 10px; border-radius: 6px; border: 1px solid var(--border, #1a1a28); background: transparent; color: inherit; cursor: pointer; font: inherit; font-size: 12px; }
-    .exp-tab.active { border-color: #fff; background: rgba(255,255,255,.08); }
-    .exp-editor { flex: 1; min-height: 0; position: relative; }
-    .muted { opacity: .7; font-size: 12px; }
-  </style>
+  <link rel="stylesheet" href="../css/explorer.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet" />
 </head>
 <body data-n3xn="safe">
   <div class="exp-shell">
     <header class="exp-top">
-      <strong>Explorer <small class="n3xn-version">v3.0.9-beta</small></strong>
-      <span class="muted">Open while logged in on main VFS for live FS</span>
+      <span class="brand">n3xn <span class="n3xn-version">Explorer</span></span>
+      <span class="muted">VS Code–style tree · Ctrl+S save</span>
       <span style="flex:1"></span>
       <a href="/settings/">Settings</a>
       <a href="/cloaker/">Cloaker</a>
+      <a href="/mc/">Minecraft</a>
       <a href="/">VFS</a>
     </header>
     <div id="explorer-root"></div>
@@ -48,19 +31,24 @@
     const root = document.getElementById("explorer-root");
     function fail(e) {
       console.error("[explorer]", e);
-      root.innerHTML = "<div style='padding:1.5rem'><h2>Explorer failed</h2><pre style='white-space:pre-wrap;color:#ff8'>" +
-        String(e && (e.stack || e.message || e)).replace(/</g, "<") + "</pre></div>";
+      root.innerHTML =
+        "<div style='padding:1.5rem'><h2>Explorer failed</h2><pre style='white-space:pre-wrap;color:#ff8'>" +
+        String(e && (e.stack || e.message || e)).replace(/</g, "<") +
+        "</pre><p><a href='/'>Back to VFS</a></p></div>";
     }
     try {
+      await import("../js/ui-modal.js");
+      await import("../js/fs-bridge.js").then((m) => m.ensureFsBridge());
       const mod = await import("../js/explorer-app.js");
       try {
         const { applyVersionToDom } = await import("../js/version.js");
         applyVersionToDom();
       } catch (_) {}
       if (mod.mountExplorer) await mod.mountExplorer(root);
-      else if (mod.renderExplorerUI) mod.renderExplorerUI(root);
       else fail(new Error("explorer-app missing mountExplorer"));
-    } catch (e) { fail(e); }
+    } catch (e) {
+      fail(e);
+    }
   </script>
 </body>
 </html>

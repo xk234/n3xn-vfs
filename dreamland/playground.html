@@ -63,7 +63,7 @@
     </aside>
     <section class="editor-pane"><div id="monaco-root"></div></section>
     <section class="preview-pane">
-      <iframe id="preview" title="preview" allow="autoplay; clipboard-read; clipboard-write; fullscreen; gamepad; pointer-lock" sandbox="allow-scripts allow-modals allow-pointer-lock allow-forms allow-same-origin"></iframe>
+      <iframe id="preview" title="preview" allow="autoplay; fullscreen; gamepad" sandbox="allow-scripts allow-modals allow-pointer-lock allow-forms"></iframe>
       <div class="console-bar" id="console-out"></div>
     </section>
   </div>
@@ -136,7 +136,20 @@
 
     await new Promise((resolve, reject) => {
       if (!window.require) { statusBadge.textContent = "Monaco missing"; reject(new Error("no monaco")); return; }
-      window.require.config({ paths: { vs: "/__monaco__/npm/monaco-editor@0.52.0/min/vs" } });
+      const MONACO_BASE = window.location.origin + "/__monaco__/npm/monaco-editor@0.52.0/min/vs";
+      window.MonacoEnvironment = {
+        getWorkerUrl: function (_moduleId, label) {
+          const code =
+            "self.MonacoEnvironment = { baseUrl: " +
+            JSON.stringify(MONACO_BASE + "/") +
+            " };\n" +
+            "importScripts(" +
+            JSON.stringify(MONACO_BASE + "/base/worker/workerMain.js") +
+            ");";
+          return "data:text/javascript;charset=utf-8," + encodeURIComponent(code);
+        },
+      };
+      window.require.config({ paths: { vs: MONACO_BASE } });
       window.require(["vs/editor/editor.main"], () => {
         monaco.languages.typescript.typescriptDefaults.setCompilerOptions({
           target: monaco.languages.typescript.ScriptTarget.ES2022,
@@ -169,8 +182,9 @@
     });
 
     function resolvePath(importer, rel) {
+      const cleanImporter = String(importer || "/src/main.tsx").replace(/^vfs:/, "");
       if (rel.startsWith("/")) return rel;
-      const parts = importer.split("/").slice(0, -1);
+      const parts = cleanImporter.split("/").slice(0, -1);
       for (const seg of rel.split("/")) {
         if (!seg || seg === ".") continue;
         if (seg === "..") parts.pop(); else parts.push(seg);
@@ -191,7 +205,7 @@
             return { path: ESM_PROXY + args.path, external: true };
           });
           build.onResolve({ filter: /^(\.|\/)/ }, (args) => {
-            const base = resolvePath(args.importer || "/src/main.tsx", args.path);
+            const base = resolvePath((args.importer || "/src/main.tsx").replace(/^vfs:/, ""), args.path);
             for (const ext of exts) if (files[base + ext] !== undefined) return { path: base + ext, namespace: "vfs" };
             return { errors: [{ text: "Not found: " + args.path }] };
           });

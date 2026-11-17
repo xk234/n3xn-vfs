@@ -1,5 +1,5 @@
 /**
- * n3xn VFS v3.0.12-beta — Anti-Blocksi
+ * n3xn VFS v3.0.13-beta — Anti-Blocksi
  * Modes: always | on-detect | off
  * Installed app / standalone → force always cloak (+ about:blank if blob blocked)
  */
@@ -102,11 +102,15 @@
   }
 
   function escAttr(s) {
+    var a = String.fromCharCode(38) + "amp;";
+    var q = String.fromCharCode(38) + "quot;";
+    var lt = String.fromCharCode(38) + "lt;";
+    var gt = String.fromCharCode(38) + "gt;";
     return String(s || "")
-      .replace(/&/g, "&")
-      .replace(/"/g, """)
-      .replace(/</g, "<")
-      .replace(/>/g, ">");
+      .replace(/&/g, a)
+      .replace(/"/g, q)
+      .replace(/</g, lt)
+      .replace(/>/g, gt);
   }
 
   function favHref() {
@@ -308,6 +312,6 @@
     cloak: cloak,
     mode: cloakMode,
     isInstalledApp: isInstalledApp,
-    version: "3.0.12-beta",
+    version: "3.0.13-beta",
   };
 })();

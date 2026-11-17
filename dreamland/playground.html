@@ -5,7 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>n3xn Dreamland Studio</title>
   <meta name="theme-color" content="#09090b" />
-  <script src="../js/anti-blocksi.js" data-n3xn="safe"></script>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: system-ui, sans-serif; background: #09090b; color: #e4e4e7; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
@@ -66,15 +65,17 @@
       <div class="console-bar" id="console-out"></div>
     </section>
   </div>
-  <script src="/__monaco__/npm/monaco-editor@0.52.0/min/vs/loader.js"></script>
+  <script src="/dreamland/__monaco__/npm/monaco-editor@0.52.0/min/vs/loader.js"></script>
   <script type="module">
     const ORIGIN = window.location.origin;
     const ESM_LIVE = "https://esm.sh/";
-    const ESM_PROXY = ORIGIN + "/__cdn__/esm/";
-    const JSDELIVR_PROXY = ORIGIN + "/__cdn__/jsdelivr/";
+    const ESM_PROXY = ORIGIN + "/dreamland/__cdn__/esm/";
+    const JSDELIVR_PROXY = ORIGIN + "/dreamland/__cdn__/jsdelivr/";
     const JSDELIVR_LIVE = "https://cdn.jsdelivr.net/";
     const STORAGE_KEY = "n3xn_dreamland_vfs_v2";
-    if ("serviceWorker" in navigator) navigator.serviceWorker.register("../sw.js").catch(() => {});
+    if ("serviceWorker" in navigator) {
+      navigator.serviceWorker.register("./sw.js", { scope: "./" }).catch(() => {});
+    }
 
     const statusBadge = document.getElementById("status-badge");
     const consoleOut = document.getElementById("console-out");
@@ -108,7 +109,7 @@
     catch { esbuild = await import(JSDELIVR_LIVE + "npm/esbuild-wasm@0.24.2/esm/browser.min.js"); }
 
     const DEFAULT_FILES = {
-      "/src/main.tsx": `import { css, type Component } from "dreamland/core";\nimport { HUD } from "./HUD.tsx";\n\nexport const App: Component<{}, { score: number; timeLeft: number; active: boolean; x: number; y: number }> = function () {\n  this.score = 0; this.timeLeft = 15; this.active = false; this.x = 50; this.y = 50;\n  let timer;\n  const move = () => { this.x = 12 + Math.floor(Math.random() * 76); this.y = 15 + Math.floor(Math.random() * 70); };\n  const start = () => { clearInterval(timer); this.score = 0; this.timeLeft = 15; this.active = true; move();\n    timer = setInterval(() => { this.timeLeft--; if (this.timeLeft <= 0) { clearInterval(timer); this.active = false; } }, 1000); };\n  return (\n    <div class=\"card\">\n      <HUD score={use(this.score)} timeLeft={use(this.timeLeft)} />\n      <div class=\"arena\">{use(this.active).map((on) => on ? (\n        <button class=\"orb\" style={use\`left: \${this.x}%; top: \${this.y}%;\`} on:click={() => { this.score++; move(); }}>+1</button>\n      ) : (\n        <div class=\"center\"><p>{this.score > 0 ? \`Final: \${this.score}\` : \"Dreamland via n3xn\"}</p>\n        <button class=\"btn\" on:click={start}>{this.score > 0 ? \"Again\" : \"Start\"}</button></div>\n      ))}</div>\n    </div>\n  );\n};\nApp.style = css\`:scope{max-width:460px;margin:2rem auto;background:#0f172a;border:1px solid #1e293b;border-radius:12px;padding:1.25rem}.arena{position:relative;height:260px;background:#020617;border-radius:8px;margin-top:1rem}.orb{position:absolute;transform:translate(-50%,-50%);width:44px;height:44px;border-radius:50%;border:none;background:#38bdf8;font-weight:800;cursor:pointer}.center{height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.75rem}.btn{background:#38bdf8;color:#090d16;border:none;padding:.6rem 1.2rem;border-radius:8px;font-weight:700;cursor:pointer}\`;\nexport default App;\n`,
+      "/src/main.tsx": `import { css, type Component } from "dreamland/core";\nimport { HUD } from "./HUD.tsx";\n\nexport const App: Component<{}, { score: number; timeLeft: number; active: boolean; x: number; y: number }> = function () {\n  this.score = 0; this.timeLeft = 15; this.active = false; this.x = 50; this.y = 50;\n  let timer;\n  const move = () => { this.x = 12 + Math.floor(Math.random() * 76); this.y = 15 + Math.floor(Math.random() * 70); };\n  const start = () => { clearInterval(timer); this.score = 0; this.timeLeft = 15; this.active = true; move();\n    timer = setInterval(() => { this.timeLeft--; if (this.timeLeft <= 0) { clearInterval(timer); this.active = false; } }, 1000); };\n  return (\n    <div class=\"card\"><HUD score={use(this.score)} timeLeft={use(this.timeLeft)} />\n      <div class=\"arena\">{use(this.active).map((on) => on ? (\n        <button class=\"orb\" style={use\`left: \${this.x}%; top: \${this.y}%;\`} on:click={() => { this.score++; move(); }}>+1</button>\n      ) : (\n        <div class=\"center\"><p>{this.score > 0 ? \`Final: \${this.score}\` : \"Dreamland Studio\"}</p>\n        <button class=\"btn\" on:click={start}>{this.score > 0 ? \"Again\" : \"Start\"}</button></div>\n      ))}</div></div>\n  );\n};\nApp.style = css\`:scope{max-width:460px;margin:2rem auto;background:#0f172a;border:1px solid #1e293b;border-radius:12px;padding:1.25rem}.arena{position:relative;height:260px;background:#020617;border-radius:8px;margin-top:1rem}.orb{position:absolute;transform:translate(-50%,-50%);width:44px;height:44px;border-radius:50%;border:none;background:#38bdf8;font-weight:800;cursor:pointer}.center{height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.75rem}.btn{background:#38bdf8;color:#090d16;border:none;padding:.6rem 1.2rem;border-radius:8px;font-weight:700;cursor:pointer}\`;\nexport default App;\n`,
       "/src/HUD.tsx": `import { css, type Component } from "dreamland/core";\nexport const HUD: Component<{ score: number; timeLeft: number }> = function (cx) {\n  return (<header><h3>⚡ Dreamland Reflex</h3><div class=\"meta\"><span>Score: <strong>{use(cx.score)}</strong></span><span>Time: <strong>{use(cx.timeLeft)}s</strong></span></div></header>);\n};\nHUD.style = css\`:scope{display:flex;justify-content:space-between;align-items:center}.meta{display:flex;gap:1rem;color:#94a3b8}strong{color:#38bdf8}\`;\n`,
     };
 
@@ -156,17 +157,24 @@
 
     await new Promise((resolve, reject) => {
       if (!window.require) { statusBadge.textContent = "Monaco missing"; reject(new Error("no monaco")); return; }
-      const MONACO_BASE = ORIGIN + "/__monaco__/npm/monaco-editor@0.52.0/min/vs";
+      const MONACO_BASE = ORIGIN + "/dreamland/__monaco__/npm/monaco-editor@0.52.0/min/vs";
       window.MonacoEnvironment = {
         getWorkerUrl: function (_id, label) {
           const map = {
+            json: "language/json/jsonn            css: "language/css/cssWorker.js",
+            html: "language/html/htmlWorker.js",
+            typescript: "language/typescript/tsWorker.js",
+            javascript: "language/typescript/tsWorker.js",
+          };
+          // fix accidental truncation in map - full paths:
+          const full = {
             json: "language/json/jsonWorker.js",
             css: "language/css/cssWorker.js",
             html: "language/html/htmlWorker.js",
             typescript: "language/typescript/tsWorker.js",
             javascript: "language/typescript/tsWorker.js",
           };
-          return MONACO_BASE + "/" + (map[label] || "base/worker/workerMain.js");
+          return MONACO_BASE + "/" + (full[label] || "base/worker/workerMain.js");
         },
       };
       window.require.config({ paths: { vs: MONACO_BASE } });
@@ -276,7 +284,7 @@
     document.getElementById("warm-btn").onclick = async () => {
       const reg = await navigator.serviceWorker?.ready;
       reg?.active?.postMessage({ type: "WARM_DREAMLAND" });
-      log("WARM_DREAMLAND sent", "log-ok");
+      log("WARM_DREAMLAND sent to dreamland/sw.js", "log-ok");
     };
     document.getElementById("new-file-btn").onclick = () => {
       const name = prompt("New file path:", "/src/Component.tsx");

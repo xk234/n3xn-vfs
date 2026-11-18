@@ -1,13 +1,14 @@
-/* n3xn Dreamland SW — scoped to /dreamland/ only
- * Proxies: /dreamland/__monaco__/  /dreamland/__cdn__/jsdelivr/  /dreamland/__cdn__/esm/
- * Independent from root sw.js
- */
-const SHELL = "n3xn-dreamland-shell-v1";
-const MONACO = "n3xn-dreamland-monaco-v1";
-const CDN = "n3xn-dreamland-cdn-v1";
+/* n3xn Dreamland SW — scoped to ./ (/dreamland/ on CF Pages, /n3xn-vfs/dreamland/ on GH Pages) */
+const SHELL = "n3xn-dreamland-shell-v2";
+const MONACO = "n3xn-dreamland-monaco-v2";
+const CDN = "n3xn-dreamland-cdn-v2";
 const VER = "monaco-editor@0.52.0";
-const MONACO_PREFIX = "/dreamland/__monaco__/";
-const CDN_PREFIX = "/dreamland/__cdn__/";
+
+// Dynamically resolves "/dreamland/" on CF Pages OR "/n3xn-vfs/dreamland/" on GitHub Pages
+const BASE_PATH = new URL("./", self.location.href).pathname;
+const MONACO_PREFIX = BASE_PATH + "__monaco__/";
+const CDN_PREFIX = BASE_PATH + "__cdn__/";
+
 const JSDELIVR = "https://cdn.jsdelivr.net/";
 const ESM = "https://esm.sh/";
 
@@ -84,6 +85,8 @@ async function warmMonaco() {
   const cache = await caches.open(MONACO);
   await Promise.all(MONACO_CORE.map(async (rel) => {
     try {
+      const localKey = self.location.origin + MONACO_PREFIX + rel;
+      if (await cache.match(localKey)) return;
       const res = await fetch(JSDELIVR + rel, { mode: "cors", credentials: "omit" });
       if (!res.ok) return;
       const buf = await res.arrayBuffer();
@@ -92,7 +95,7 @@ async function warmMonaco() {
         "Cache-Control": "public, max-age=31536000",
         "Access-Control-Allow-Origin": "*",
       });
-      await cache.put(self.location.origin + MONACO_PREFIX + rel, new Response(buf, { status: 200, headers }));
+      await cache.put(localKey, new Response(buf, { status: 200, headers }));
     } catch (_) {}
   }));
 }
@@ -215,7 +218,7 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  if (url.pathname.startsWith("/dreamland/")) {
+  if (url.pathname.startsWith(BASE_PATH)) {
     event.respondWith((async () => {
       try {
         const net = await fetch(req);
@@ -241,6 +244,10 @@ self.addEventListener("message", (event) => {
   const data = event.data;
   if (!data || typeof data !== "object") return;
   if (data.type === "WARM_DREAMLAND" || data.type === "WARM_ALL") {
-    event.waitUntil(Promise.all([warmMonaco(), warmExternal()]));
+    event.waitUntil(
+      Promise.all([warmMonaco(), warmExternal()]).then(() => {
+        event.source?.postMessage?.({ type: "WARM_DREAMLAND_OK" });
+      })
+    );
   }
 });

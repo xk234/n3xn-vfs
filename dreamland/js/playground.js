@@ -1,4 +1,4 @@
-import { DEFAULT_FILES, loadFiles, saveFiles } from "./vfs.js";
+import { fetchTemplateManifest, fetchTemplateFiles, loadInitialFiles, saveFiles } from "./vfs.js";
 import { initMonaco, getOrCreateModel, disposeModel } from "./monaco.js";
 import { initCompiler, bundleProject } from "./compiler.js";
 
@@ -12,6 +12,7 @@ const statusBadge = document.getElementById("status-badge");
 const consoleOut = document.getElementById("console-out");
 const previewFrame = document.getElementById("preview");
 const fileListEl = document.getElementById("file-list");
+const templateSelect = document.getElementById("template-select");
 
 function log(msg, level = "log", stack = "") {
   const entry = document.createElement("div");
@@ -34,7 +35,6 @@ function log(msg, level = "log", stack = "") {
   consoleOut.scrollTop = consoleOut.scrollHeight;
 }
 
-// Capture host-page errors in the in-app console too
 window.addEventListener("error", (e) => {
   log(`Studio Error: ${e.message}`, "err", e.error?.stack || "");
 });
@@ -42,27 +42,27 @@ window.addEventListener("unhandledrejection", (e) => {
   log(`Studio Rejection: ${e.reason}`, "err", e.reason?.stack || "");
 });
 
-// 1. Ensure scoped SW controls ./dreamland/ before loading local proxy assets
 if ("serviceWorker" in navigator) {
   await navigator.serviceWorker.register(BASE_URL + "sw.js", { scope: BASE_URL });
   await navigator.serviceWorker.ready;
   if (!navigator.serviceWorker.controller) {
     statusBadge.textContent = "Activating SW…";
-    if (!sessionStorage.getItem("dl_sw_booted_v9")) {
-      sessionStorage.setItem("dl_sw_booted_v9", "1");
+    if (!sessionStorage.getItem("dl_sw_booted_v20")) {
+      sessionStorage.setItem("dl_sw_booted_v20", "1");
       location.reload();
       await new Promise(() => {});
     }
   }
   navigator.serviceWorker.addEventListener("message", (e) => {
     if (e.data?.type === "WARM_DREAMLAND_OK") {
-      log("Offline cache warmed (Monaco + TS Worker + esbuild + Dreamland plugins)", "ok");
+      log("Offline cache warmed (Templates + Monaco + TS Worker + esbuild + Dreamland 0.1.3)", "ok");
       statusBadge.textContent = "Offline Ready";
     }
   });
 }
 
-let files = loadFiles();
+const templates = await fetchTemplateManifest(BASE_URL);
+let files = await loadInitialFiles(BASE_URL, templates);
 let activeFile = files["/src/main.tsx"] ? "/src/main.tsx" : Object.keys(files)[0];
 let editor = null;
 let lastBuiltHtml = "";
@@ -103,6 +103,22 @@ function switchFile(path) {
   renderSidebar();
 }
 
+async function applyTemplate(tpl) {
+  if (!tpl) return;
+  try {
+    const nextFiles = await fetchTemplateFiles(BASE_URL, tpl);
+    for (const oldPath of Object.keys(files)) disposeModel(oldPath);
+    files = nextFiles;
+    saveFiles(files);
+    Object.entries(files).forEach(([p, c]) => getOrCreateModel(p, c));
+    switchFile(files["/src/main.tsx"] ? "/src/main.tsx" : Object.keys(files)[0]);
+    await buildAndRun();
+    log(`${tpl.name} — ${tpl.description || ""}`, "ok");
+  } catch (e) {
+    log(String(e.message || e), "err");
+  }
+}
+
 async function buildAndRun() {
   const t0 = performance.now();
   consoleOut.innerHTML = "";
@@ -133,6 +149,18 @@ async function buildAndRun() {
   }
 }
 
+for (const tpl of templates) {
+  const opt = document.createElement("option");
+  opt.value = tpl.id;
+  opt.textContent = `[${tpl.category}] ${tpl.name}`;
+  opt.title = tpl.description || "";
+  templateSelect.appendChild(opt);
+}
+templateSelect.onchange = () => {
+  const tpl = templates.find((t) => t.id === templateSelect.value);
+  applyTemplate(tpl);
+};
+
 await initCompiler(JSDELIVR_PROXY);
 editor = await initMonaco({
   monacoMin: MONACO_MIN,
@@ -151,7 +179,6 @@ editor = await initMonaco({
   onRun: buildAndRun,
 });
 
-// Listen to rich console & error messages from the Dreamland preview iframe
 window.addEventListener("message", (e) => {
   if (e.data?.type === "dl-console") {
     log(e.data.msg, e.data.level, e.data.stack);
@@ -176,11 +203,8 @@ document.getElementById("new-file-btn").onclick = () => {
   switchFile(clean);
 };
 document.getElementById("reset-btn").onclick = () => {
-  files = structuredClone(DEFAULT_FILES);
-  saveFiles(files);
-  Object.entries(files).forEach(([p, c]) => getOrCreateModel(p, c));
-  switchFile("/src/main.tsx");
-  buildAndRun();
+  const currentTpl = templates.find((t) => t.id === templateSelect.value) || templates[0];
+  applyTemplate(currentTpl);
 };
 document.getElementById("export-btn").onclick = () => {
   if (!lastBuiltHtml) return;

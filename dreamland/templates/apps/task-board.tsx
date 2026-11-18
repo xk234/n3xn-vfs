@@ -2,30 +2,69 @@ import { css, type Component } from "dreamland/core";
 
 type Task = { id: number; text: string; done: boolean };
 
-export const App: Component<{}, { draft: string; count: number; items: Task[] }> = function () {
+export const App: Component<{}, { draft: string; count: number }> = function () {
   const saved = localStorage.getItem("dl_tasks_v1");
-  this.items = saved
+  let items: Task[] = saved
     ? JSON.parse(saved)
     : [
         { id: 1, text: "Build a Dreamland game offline", done: true },
         { id: 2, text: "Export standalone .HTML bundle", done: false },
       ];
   this.draft = "";
-  this.count = this.items.length;
+  this.count = items.length;
 
-  const sync = () => {
-    this.items = [...this.items];
-    this.count = this.items.length;
-    localStorage.setItem("dl_tasks_v1", JSON.stringify(this.items));
+  let listEl: HTMLUListElement | null = null;
+
+  const renderList = () => {
+    this.count = items.length;
+    localStorage.setItem("dl_tasks_v1", JSON.stringify(items));
+    if (!listEl) return;
+    listEl.innerHTML = "";
+    for (const t of items) {
+      const li = document.createElement("li");
+      if (t.done) li.className = "done";
+
+      const label = document.createElement("label");
+      const chk = document.createElement("input");
+      chk.type = "checkbox";
+      chk.checked = t.done;
+      chk.onchange = () => {
+        t.done = !t.done;
+        renderList();
+      };
+
+      const span = document.createElement("span");
+      span.textContent = t.text;
+
+      label.append(chk, span);
+
+      const del = document.createElement("button");
+      del.className = "del";
+      del.textContent = "×";
+      del.onclick = () => {
+        items = items.filter((x) => x.id !== t.id);
+        renderList();
+      };
+
+      li.append(label, del);
+      listEl.appendChild(li);
+    }
   };
 
   const add = (e: Event) => {
     e.preventDefault();
     const clean = this.draft.trim();
     if (!clean) return;
-    this.items.unshift({ id: Date.now(), text: clean, done: false });
+    items.unshift({ id: Date.now(), text: clean, done: false });
     this.draft = "";
-    sync();
+    const input = this.root.querySelector("input");
+    if (input) input.value = "";
+    renderList();
+  };
+
+  this.mount = () => {
+    listEl = this.root.querySelector("ul");
+    renderList();
   };
 
   return (
@@ -42,28 +81,7 @@ export const App: Component<{}, { draft: string; count: number; items: Task[] }>
         />
         <button type="submit">Add</button>
       </form>
-      <ul>
-        {use(this.items).map((list) =>
-          list.map((t) => (
-            <li class={t.done ? "done" : ""}>
-              <label>
-                <input
-                  type="checkbox"
-                  checked={t.done}
-                  on:change={() => { t.done = !t.done; sync(); }}
-                />
-                <span>{t.text}</span>
-              </label>
-              <button
-                class="del"
-                on:click={() => { this.items = this.items.filter((x) => x.id !== t.id); sync(); }}
-              >
-                ×
-              </button>
-            </li>
-          ))
-        )}
-      </ul>
+      <ul />
     </div>
   );
 };

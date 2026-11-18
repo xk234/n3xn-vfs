@@ -1,0 +1,50 @@
+{
+  "templates": [
+    {
+      "id": "demo-reflex",
+      "category": "Demo",
+      "name": "⚡ Dreamland Reflex",
+      "description": "Multi-component reflex orb clicker with live countdown timer, high score persistence, and reactive HUD props.",
+      "files": {
+        "/src/main.tsx": "demo/main.tsx",
+        "/src/HUD.tsx": "demo/HUD.tsx"
+      }
+    },
+    {
+      "id": "game-snake",
+      "category": "Games",
+      "name": "🐍 Neon Grid Snake",
+      "description": "Classic 20x20 grid snake game with HTML5 Canvas rendering, WASD/Arrow keys, touch D-pad, and localStorage best score.",
+      "files": {
+        "/src/main.tsx": "games/snake.tsx"
+      }
+    },
+    {
+      "id": "game-bricks",
+      "category": "Games",
+      "name": "🧱 Cyber Brick Breaker",
+      "description": "60fps requestAnimationFrame arcade brick breaker with mouse/touch paddle steering, multi-row bricks, and lives.",
+      "files": {
+        "/src/main.tsx": "games/brick-breaker.tsx"
+      }
+    },
+    {
+      "id": "app-synth",
+      "category": "Apps",
+      "name": "🎹 WebAudio Pocket Synth",
+      "description": "8-pad polyphonic WebAudio synthesizer with selectable waveforms (sine, triangle, sawtooth, square) and number key shortcuts.",
+      "files": {
+        "/src/main.tsx": "apps/synth-pad.tsx"
+      }
+    },
+    {
+      "id": "app-tasks",
+      "category": "Apps",
+      "name": "📋 Offline Task Tracker",
+      "description": "Reactive task list with live item counter, completion toggles, and automatic localStorage persistence.",
+      "files": {
+        "/src/main.tsx": "apps/task-board.tsx"
+      }
+    }
+  ]
+}

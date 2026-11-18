@@ -1,7 +1,7 @@
 import { css, type Component } from "dreamland/core";
 import { HUD } from "./HUD.tsx";
 
-export const App: Component<{}, { score: number; best: number; timeLeft: number; active: boolean; statusText: string; btnText: string; x: number; y: number }> = function () {
+export const App: Component<{}, {}, { score: number; best: number; timeLeft: number; active: boolean; statusText: string; btnText: string; x: number; y: number }> = function () {
   this.score = 0;
   this.best = Number(localStorage.getItem("dl_reflex_best") || 0);
   this.timeLeft = 15;

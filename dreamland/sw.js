@@ -1,7 +1,7 @@
 /* n3xn Dreamland SW v20 — Dynamic Template Caching + Clean Non-Redirected Responses */
-const SHELL = "n3xn-dreamland-shell-v21";
-const MONACO = "n3xn-dreamland-monaco-v21";
-const CDN = "n3xn-dreamland-cdn-v21";
+const SHELL = "n3xn-dreamland-shell-v22";
+const MONACO = "n3xn-dreamland-monaco-v22";
+const CDN = "n3xn-dreamland-cdn-v22";
 const VER = "monaco-editor@0.52.0";
 
 const BASE_PATH = new URL("./", self.location.href).pathname;

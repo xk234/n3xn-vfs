@@ -13,8 +13,8 @@
     .badge { background: #1e293b; color: #7dd3fc; font-size: 11px; padding: 2px 8px; border-radius: 99px; }
     .actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
     .chk-label { font-size: 12px; color: #a1a1aa; display: flex; align-items: center; gap: 4px; cursor: pointer; }
-    button { background: #27272a; color: #f4f4f5; border: 1px solid #3f3f46; padding: 5px 11px; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; }
-    button:hover { background: #3f3f46; }
+    select, button { background: #27272a; color: #f4f4f5; border: 1px solid #3f3f46; padding: 5px 10px; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; }
+    select:hover, button:hover { background: #3f3f46; }
     button.primary { background: #38bdf8; color: #09090b; border-color: #38bdf8; }
     button.primary:hover { background: #7dd3fc; }
     .btn-sm { padding: 2px 6px; }
@@ -51,6 +51,7 @@
       <a class="nav" href="../explorer/">Explorer</a>
     </div>
     <div class="actions">
+      <select id="template-select" title="Load Demo, Game, or App Template"></select>
       <label class="chk-label">
         <input type="checkbox" id="autorun-chk" checked /> Auto-Run
       </label>

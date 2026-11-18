@@ -11,12 +11,20 @@ export async function initCompiler(jsdelivrProxy) {
   });
 }
 
-// Compiles Dreamland's `use(obj.prop)` reactivity macro into runtime pointer calls
+// Dreamland 0.1.x compiles `use(obj.prop)` macros into reactive pointer tuples `[obj, "prop"]`
+// and `use` template literals into reactive computed strings.
 function transformDreamlandMacros(src) {
-  return src.replace(
+  // 1. Transform `use(target.prop)` -> `[target, "prop"]` (Dreamland's native Pointer tuple)
+  let out = src.replace(
     /\buse\(\s*([a-zA-Z_$][\w$.]*?)\.([a-zA-Z_$][\w$]*)\s*\)/g,
-    (_match, target, prop) => `__dl_use(${target}, "${prop}")`
+    (_match, target, prop) => `[${target}, "${prop}"]`
   );
+  // 2. Transform `use\`...\`` tagged templates into reactive getters
+  out = out.replace(/\buse`([^`]*)`/g, (_match, tpl) => {
+    const fnBody = tpl.replace(/\$\{([^}]+)\}/g, (_m, expr) => "${" + expr + "}");
+    return `(() => \`${fnBody}\`)`;
+  });
+  return out;
 }
 
 export async function bundleProject({ files, proxies }) {
@@ -100,9 +108,10 @@ export async function bundleProject({ files, proxies }) {
         if (args.path.endsWith(".json")) return { contents: raw, loader: "json" };
         const loader = args.path.endsWith(".tsx") ? "tsx" : args.path.endsWith(".ts") ? "ts" : "jsx";
         const transformed = transformDreamlandMacros(raw);
+        // Only import `h` and `Fragment` which are guaranteed exports of `dreamland/core`
         const prefix =
           loader === "tsx" || loader === "jsx"
-            ? `import { h as __dl_h, Fragment as __dl_Frag, use as __dl_use } from "dreamland/core";\n`
+            ? `import { h as __dl_h, Fragment as __dl_Frag } from "dreamland/core";\n`
             : "";
         return { contents: prefix + transformed, loader };
       });

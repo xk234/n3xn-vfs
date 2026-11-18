@@ -110,60 +110,41 @@ export async function bundleProject({ files, proxies, onWarn }) {
         if (args.path.endsWith(".json")) return { contents: raw, loader: "json" };
         const loader = args.path.endsWith(".tsx") ? "tsx" : args.path.endsWith(".ts") ? "ts" : "jsx";
         const transformed = transformDreamlandMacros(raw);
+        // Always back Pointers with genuine `createState({ val })` boxes synced via `stateListen`
         const prefix =
           loader === "tsx" || loader === "jsx"
-            ? `import { h as __dl_h, Fragment as __dl_Frag, Pointer as __dl_Pointer, createState as __dl_createState, stateListen as __dl_stateListen, stateProxy as __dl_stateProxy } from "dreamland/core";
-const __dl_ensureListenerSlot = (proxyObj, prop) => {
-  const internal = proxyObj && proxyObj[__dl_stateProxy];
-  if (internal) {
-    if (!internal.listeners) internal.listeners = {};
-    if (!Array.isArray(internal.listeners[prop])) internal.listeners[prop] = [];
+            ? `import { h as __dl_h, Fragment as __dl_Frag, Pointer as __dl_Pointer, createState as __dl_createState, stateListen as __dl_stateListen } from "dreamland/core";
+const __dl_makeBoxPtr = (initialVal, subscribeFn) => {
+  const box = __dl_createState({ val: initialVal });
+  if (typeof subscribeFn === "function") {
+    subscribeFn((nextVal) => { box.val = nextVal; });
   }
-  return internal;
-};
-const __dl_attachMap = (ptr, stateProxyObj, prop) => {
-  if (ptr && typeof ptr.map !== "function") {
-    ptr.map = (mapFn) => {
-      const box = __dl_createState({ val: mapFn(stateProxyObj[prop]) });
-      __dl_ensureListenerSlot(box, "val");
-      __dl_ensureListenerSlot(stateProxyObj, prop);
-      try {
-        __dl_stateListen(stateProxyObj, prop, (v) => { box.val = mapFn(v); });
-      } catch (_) {}
-      return new __dl_Pointer(box, "val");
-    };
-  }
+  const ptr = new __dl_Pointer(box, "val");
+  ptr.map = (mapFn) => __dl_makeBoxPtr(mapFn(box.val), (emit) => {
+    __dl_stateListen(box, "val", (v) => emit(mapFn(v)));
+  });
   return ptr;
 };
 const __dl_ptr = (obj, prop) => {
   if (!obj) return undefined;
   if (obj instanceof __dl_Pointer) return obj;
   if (obj[prop] instanceof __dl_Pointer) return obj[prop];
-  const internal = __dl_ensureListenerSlot(obj, prop);
-  if (internal && internal.pointers && internal.pointers[prop] instanceof __dl_Pointer) {
-    return __dl_attachMap(internal.pointers[prop], obj, prop);
-  }
-  if (internal && typeof internal.listen === "function") {
-    const ptr = new __dl_Pointer(obj, prop);
-    return __dl_attachMap(ptr, obj, prop);
-  }
-  const box = __dl_createState({ val: obj[prop] });
-  __dl_ensureListenerSlot(box, "val");
-  const ptr = new __dl_Pointer(box, "val");
-  return __dl_attachMap(ptr, box, "val");
+  return __dl_makeBoxPtr(obj[prop], (emit) => {
+    try {
+      __dl_stateListen(obj, prop, (v) => emit(v));
+    } catch (_) {}
+  });
 };
 const __dl_tpl = (fn, deps) => {
-  const box = __dl_createState({ val: fn() });
-  __dl_ensureListenerSlot(box, "val");
-  for (const [depObj, depProp] of deps) {
-    const internal = __dl_ensureListenerSlot(depObj, depProp);
-    if (internal && typeof internal.listen === "function") {
-      try {
-        __dl_stateListen(depObj, depProp, () => { box.val = fn(); });
-      } catch (_) {}
+  return __dl_makeBoxPtr(fn(), (emit) => {
+    for (const [depObj, depProp] of deps) {
+      if (depObj) {
+        try {
+          __dl_stateListen(depObj, depProp, () => emit(fn()));
+        } catch (_) {}
+      }
     }
-  }
-  return new __dl_Pointer(box, "val");
+  });
 };\n`
             : "";
         return { contents: prefix + transformed, loader };

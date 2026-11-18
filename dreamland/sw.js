@@ -52,6 +52,7 @@ const MONACO_CORE = [
 const EXTERNAL_WARM = [
   JSDELIVR + "npm/esbuild-wasm@0.24.2/esm/browser.min.js",
   JSDELIVR + "npm/esbuild-wasm@0.24.2/esbuild.wasm",
+  JSDELIVR + "npm/@babel/standalone@7.26.4/+esm",
   JSDELIVR + "npm/dreamland@0.1.3/dist/index.d.ts",
   JSDELIVR + "npm/dreamland@0.1.3/dist/core.d.ts",
   ESM + "dreamland@0.1.3",

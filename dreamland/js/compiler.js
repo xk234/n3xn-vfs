@@ -12,19 +12,20 @@ export async function initCompiler(jsdelivrProxy) {
 }
 
 function transformDreamlandMacros(src) {
-  // 1. Transform `use(target.prop)` -> `__dl_ptr(target, "prop")`
+  // 1. Transform `use(target.prop)` -> `__dl_ptr(() => target.prop, (v) => { target.prop = v; }, [target])`
   let out = src.replace(
     /\buse\(\s*([a-zA-Z_$][\w$.]*?)\.([a-zA-Z_$][\w$]*)\s*\)/g,
-    (_match, target, prop) => `__dl_ptr(${target}, "${prop}")`
+    (_match, target, prop) =>
+      `__dl_ptr(() => ${target}.${prop}, (__v) => { ${target}.${prop} = __v; }, [${target}])`
   );
   // 2. Transform `use\`...\`` template literals -> reactive Pointer
   out = out.replace(/\buse`([^`]*)`/g, (_match, tpl) => {
     const deps = [];
-    tpl.replace(/\$\{\s*([a-zA-Z_$][\w$.]*?)\.([a-zA-Z_$][\w$]*)\s*\}/g, (_m, obj, prop) => {
-      deps.push(`[${obj}, "${prop}"]`);
+    tpl.replace(/\$\{\s*([a-zA-Z_$][\w$.]*?)\.([a-zA-Z_$][\w$]*)\s*\}/g, (_m, obj) => {
+      deps.push(obj);
       return "";
     });
-    return `__dl_tpl(() => \`${tpl}\`, [${deps.join(", ")}])`;
+    return `__dl_ptr(() => \`${tpl}\`, () => {}, [${deps.join(", ")}])`;
   });
   return out;
 }
@@ -77,6 +78,13 @@ export async function bundleProject({ files, proxies, onWarn }) {
           namespace: "http-pkg",
         };
       });
+      build.onResolve({ filter: /^dreamland(\/.*)?$/ }, (args) => {
+        const sub = args.path.slice("dreamland".length);
+        return {
+          path: "https://esm.sh/dreamland@0.1.3" + sub,
+          namespace: "http-pkg",
+        };
+      });
       build.onResolve({ filter: /^[^./]/ }, (args) => ({
         path: "https://esm.sh/" + args.path,
         namespace: "http-pkg",
@@ -110,76 +118,51 @@ export async function bundleProject({ files, proxies, onWarn }) {
         if (args.path.endsWith(".json")) return { contents: raw, loader: "json" };
         const loader = args.path.endsWith(".tsx") ? "tsx" : args.path.endsWith(".ts") ? "ts" : "jsx";
         const transformed = transformDreamlandMacros(raw);
-        // Clean reactive Pointer bridge that tracks property mutations without misusing stateListen's signature
+        // Builds a clean Dreamland Pointer via Object.create(__dl_Pointer.prototype) without calling super()
         const prefix =
           loader === "tsx" || loader === "jsx"
-            ? `import { h as __dl_h, Fragment as __dl_Frag, Pointer as __dl_Pointer, stateProxy as __dl_stateProxy } from "dreamland/core";
-class __dl_ReactivePointer extends __dl_Pointer {
-  constructor(getFn, setFn) {
-    super(getFn, setFn);
-    this._subs = [];
-    this._val = getFn();
-  }
-  get value() { return this._val; }
-  set value(v) {
-    if (Object.is(this._val, v)) return;
-    this._val = v;
-    for (const fn of this._subs) fn(v);
-  }
-  get val() { return this._val; }
-  set val(v) { this.value = v; }
-  listen(fn) {
-    if (typeof fn === "function") this._subs.push(fn);
-  }
-  map(mapFn) {
-    const child = new __dl_ReactivePointer(() => mapFn(this._val), () => {});
-    this.listen((v) => { child.value = mapFn(v); });
-    return child;
-  }
-}
-const __dl_watchers = new WeakMap();
-const __dl_watchProp = (obj, prop, cb) => {
-  if (!obj || (typeof obj !== "object" && typeof obj !== "function")) return;
-  let propMap = __dl_watchers.get(obj);
-  if (!propMap) {
-    propMap = new Map();
-    __dl_watchers.set(obj, propMap);
-  }
-  let subs = propMap.get(prop);
-  if (!subs) {
-    subs = new Set();
-    propMap.set(prop, subs);
-    const target = (typeof obj === "object" && __dl_stateProxy in obj) ? obj[__dl_stateProxy] : obj;
-    let cur = target[prop];
-    const desc = Object.getOwnPropertyDescriptor(target, prop);
-    if (!desc || desc.configurable) {
-      Object.defineProperty(target, prop, {
-        configurable: true,
-        enumerable: true,
-        get() { return desc && desc.get ? desc.get.call(this) : cur; },
-        set(next) {
-          if (desc && desc.set) desc.set.call(this, next);
-          else cur = next;
-          for (const fn of subs) fn(next);
-        }
-      });
+            ? `import { h as __dl_h, Fragment as __dl_Frag, Pointer as __dl_Pointer, stateListen as __dl_stateListen, stateProxy as __dl_stateProxy, DREAMLAND as __dl_SYM } from "dreamland/core";
+const __dl_allPointers = new Set();
+const __dl_flushAll = () => {
+  for (const p of __dl_allPointers) p._sync();
+};
+const __dl_ptr = (getFn, setFn, deps = []) => {
+  const initial = getFn();
+  if (initial && initial instanceof __dl_Pointer) return initial;
+  const subs = new Set();
+  let lastVal = initial;
+  const ptr = Object.create(__dl_Pointer.prototype);
+  if (__dl_SYM) ptr[__dl_SYM] = "Pointer";
+  Object.defineProperty(ptr, "value", {
+    configurable: true,
+    enumerable: true,
+    get() { return lastVal; },
+    set(v) {
+      if (Object.is(lastVal, v)) return;
+      lastVal = v;
+      setFn(v);
+      for (const fn of subs) fn(v);
+    }
+  });
+  ptr.listen = (fn) => {
+    if (typeof fn === "function") subs.add(fn);
+  };
+  ptr._sync = () => {
+    const next = getFn();
+    if (!Object.is(lastVal, next)) {
+      lastVal = next;
+      for (const fn of subs) fn(next);
+    }
+  };
+  __dl_allPointers.add(ptr);
+  for (const dep of deps) {
+    if (dep && typeof dep === "object" && __dl_stateProxy in dep) {
+      try {
+        __dl_stateListen(dep, __dl_flushAll);
+      } catch (_) {}
     }
   }
-  subs.add(cb);
-};
-const __dl_ptr = (obj, prop) => {
-  if (!obj) return undefined;
-  if (obj instanceof __dl_Pointer) return obj;
-  if (obj[prop] instanceof __dl_Pointer) return obj[prop];
-  const ptr = new __dl_ReactivePointer(() => obj[prop], (v) => { obj[prop] = v; });
-  __dl_watchProp(obj, prop, (v) => { ptr.value = v; });
-  return ptr;
-};
-const __dl_tpl = (fn, deps) => {
-  const ptr = new __dl_ReactivePointer(() => fn(), () => {});
-  for (const [depObj, depProp] of deps) {
-    __dl_watchProp(depObj, depProp, () => { ptr.value = fn(); });
-  }
+  ptr.map = (mapFn) => __dl_ptr(() => mapFn(getFn()), () => {}, deps);
   return ptr;
 };\n`
             : "";

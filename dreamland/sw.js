@@ -1,7 +1,7 @@
-/* n3xn Dreamland SW v6 — Modular Shell + Universal External Proxy + All Dreamland Plugins */
-const SHELL = "n3xn-dreamland-shell-v6";
-const MONACO = "n3xn-dreamland-monaco-v6";
-const CDN = "n3xn-dreamland-cdn-v6";
+/* n3xn Dreamland SW v7 — Modular Shell + Universal External Proxy + All Dreamland Plugins */
+const SHELL = "n3xn-dreamland-shell-v7";
+const MONACO = "n3xn-dreamland-monaco-v7";
+const CDN = "n3xn-dreamland-cdn-v7";
 const VER = "monaco-editor@0.52.0";
 
 const BASE_PATH = new URL("./", self.location.href).pathname;
@@ -19,7 +19,10 @@ const SHELL_URLS = [
   "./playground",
   "./playground.html",
   "./playground.css",
-  "./playground.js",
+  "./js/vfs.js",
+  "./js/monaco.js",
+  "./js/compiler.js",
+  "./js/playground.js",
   "./sw.js",
 ];
 

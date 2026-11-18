@@ -5,7 +5,7 @@ export const App: Component<{}, { score: number; lives: number; msg: string }> =
   this.lives = 3;
   this.msg = "Move mouse or touch to steer paddle";
 
-  let canvas!: HTMLCanvasElement;
+  let canvas: HTMLCanvasElement | null = null;
   let paddleX = 165;
   let ballX = 200;
   let ballY = 230;
@@ -33,7 +33,7 @@ export const App: Component<{}, { score: number; lives: number; msg: string }> =
 
   const frame = () => {
     const ctx = canvas?.getContext("2d");
-    if (!ctx) return;
+    if (!ctx || !canvas) return;
 
     ctx.fillStyle = "#020617";
     ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -96,8 +96,11 @@ export const App: Component<{}, { score: number; lives: number; msg: string }> =
   };
 
   this.mount = () => {
+    canvas = this.root.querySelector("canvas");
+    if (!canvas) return;
     restart();
     const move = (clientX: number) => {
+      if (!canvas) return;
       const rect = canvas.getBoundingClientRect();
       paddleX = Math.max(0, Math.min(canvas.width - 74, clientX - rect.left - 37));
     };
@@ -114,7 +117,7 @@ export const App: Component<{}, { score: number; lives: number; msg: string }> =
         <span>Lives: <strong>{use(this.lives)}</strong></span>
         <button on:click={restart}>Restart</button>
       </div>
-      <canvas bind:this={use(canvas)} width="400" height="300" />
+      <canvas width="400" height="300" />
       <p>{use(this.msg)}</p>
     </div>
   );

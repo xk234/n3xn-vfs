@@ -1,7 +1,7 @@
-/* n3xn Dreamland SW v15 — Non-Redirected Clean Responses + CSS Fix + Universal Proxy */
-const SHELL = "n3xn-dreamland-shell-v18";
-const MONACO = "n3xn-dreamland-monaco-v18";
-const CDN = "n3xn-dreamland-cdn-v18";
+/* n3xn Dreamland SW v20 — Dynamic Template Caching + Clean Non-Redirected Responses */
+const SHELL = "n3xn-dreamland-shell-v20";
+const MONACO = "n3xn-dreamland-monaco-v20";
+const CDN = "n3xn-dreamland-cdn-v20";
 const VER = "monaco-editor@0.52.0";
 
 const BASE_PATH = new URL("./", self.location.href).pathname;
@@ -13,6 +13,7 @@ const ESM = "https://esm.sh/";
 const UNPKG = "https://unpkg.com/";
 const CDNJS = "https://cdnjs.cloudflare.com/";
 
+// Only core studio shell files — templates are discovered dynamically via ./templates/index.json
 const SHELL_URLS = [
   "./",
   "./index.html",
@@ -23,6 +24,7 @@ const SHELL_URLS = [
   "./js/monaco.js",
   "./js/compiler.js",
   "./js/playground.js",
+  "./templates/index.json",
   "./sw.js",
 ];
 
@@ -72,46 +74,14 @@ async function cleanResponse(res, fallbackMime) {
   });
 }
 
-self.addEventListener("install", (event) => {
-  event.waitUntil(
-    (async () => {
-      const shell = await caches.open(SHELL);
-      await Promise.allSettled(
-        SHELL_URLS.map(async (rel) => {
-          const fullUrl = new URL(rel, self.location.href).href;
-          const res = await fetch(fullUrl, { redirect: "follow", cache: "no-store" });
-          if (res.ok) {
-            const clean = await cleanResponse(res, mimeFor(rel));
-            await shell.put(fullUrl, clean);
-          }
-        })
-      );
-      await warmMonaco();
-      await warmExternal();
-      await self.skipWaiting();
-    })()
-  );
-});
-
-self.addEventListener("activate", (event) => {
-  event.waitUntil(
-    (async () => {
-      const keep = new Set([SHELL, MONACO, CDN]);
-      const keys = await caches.keys();
-      await Promise.all(
-        keys.filter((k) => k.startsWith("n3xn-dreamland-") && !keep.has(k)).map((k) => caches.delete(k))
-      );
-      await self.clients.claim();
-    })()
-  );
-});
-
 function mimeFor(path) {
   const p = String(path).split("?")[0].toLowerCase();
   if (p.endsWith(".wasm")) return "application/wasm";
   if (p.endsWith(".css")) return "text/css; charset=utf-8";
   if (p.endsWith(".js") || p.endsWith(".mjs")) return "application/javascript; charset=utf-8";
-  if (p.endsWith(".d.ts") || p.endsWith(".ts") || p.endsWith(".tsx")) return "text/plain; charset=utf-8";
+  if (p.endsWith(".d.ts") || p.endsWith(".ts") || p.endsWith(".tsx") || p.endsWith(".jsx")) {
+    return "text/plain; charset=utf-8";
+  }
   if (p.endsWith(".json")) return "application/json";
   if (p.endsWith(".svg")) return "image/svg+xml";
   if (p.endsWith(".png")) return "image/png";
@@ -135,6 +105,68 @@ function isHtmlPoison(buf, ct, expectsHtml = false) {
   } catch (_) {}
   return false;
 }
+
+// Dynamically reads ./templates/index.json and caches every referenced .tsx/.jsx/.ts/.css file
+async function warmTemplates() {
+  const shell = await caches.open(SHELL);
+  const indexUrl = new URL("./templates/index.json", self.location.href).href;
+  try {
+    const res = await fetch(indexUrl, { redirect: "follow", cache: "no-store" });
+    if (!res.ok) return;
+    const cleanIndex = await cleanResponse(res, "application/json");
+    await shell.put(indexUrl, cleanIndex.clone());
+    const manifest = await cleanIndex.json();
+    const list = Array.isArray(manifest?.templates) ? manifest.templates : [];
+    const fileUrls = new Set();
+    for (const tpl of list) {
+      if (tpl?.files && typeof tpl.files === "object") {
+        for (const relSrc of Object.values(tpl.files)) {
+          fileUrls.add(new URL("./templates/" + String(relSrc).replace(/^\.?\//, ""), self.location.href).href);
+        }
+      }
+    }
+    await Promise.allSettled(
+      [...fileUrls].map(async (u) => {
+        const fRes = await fetch(u, { redirect: "follow", cache: "no-store" });
+        if (fRes.ok) {
+          await shell.put(u, await cleanResponse(fRes, mimeFor(u)));
+        }
+      })
+    );
+  } catch (_) {}
+}
+
+self.addEventListener("install", (event) => {
+  event.waitUntil(
+    (async () => {
+      const shell = await caches.open(SHELL);
+      await Promise.allSettled(
+        SHELL_URLS.map(async (rel) => {
+          const fullUrl = new URL(rel, self.location.href).href;
+          const res = await fetch(fullUrl, { redirect: "follow", cache: "no-store" });
+          if (res.ok) {
+            await shell.put(fullUrl, await cleanResponse(res, mimeFor(rel)));
+          }
+        })
+      );
+      await Promise.allSettled([warmTemplates(), warmMonaco(), warmExternal()]);
+      await self.skipWaiting();
+    })()
+  );
+});
+
+self.addEventListener("activate", (event) => {
+  event.waitUntil(
+    (async () => {
+      const keep = new Set([SHELL, MONACO, CDN]);
+      const keys = await caches.keys();
+      await Promise.all(
+        keys.filter((k) => k.startsWith("n3xn-dreamland-") && !keep.has(k)).map((k) => caches.delete(k))
+      );
+      await self.clients.claim();
+    })()
+  );
+});
 
 async function warmMonaco() {
   const cache = await caches.open(MONACO);
@@ -274,13 +306,14 @@ self.addEventListener("fetch", (event) => {
       return;
     }
 
+    // Dynamically caches ANY file under /dreamland/ (including any template .tsx/.jsx/.json)
     if (url.pathname.startsWith(BASE_PATH)) {
       event.respondWith(
         (async () => {
           const cache = await caches.open(SHELL);
           const isPlayground =
             url.pathname.endsWith("/playground") || url.pathname.endsWith("/playground.html");
-          const isStaticAsset = /\.(css|js|mjs|json|wasm|png|svg|ico)$/i.test(url.pathname);
+          const isStaticAsset = /\.(css|js|mjs|ts|tsx|jsx|json|wasm|png|svg|ico)$/i.test(url.pathname);
 
           const lookupKeys = isPlayground
             ? [
@@ -349,7 +382,7 @@ self.addEventListener("message", (event) => {
   if (!data || typeof data !== "object") return;
   if (data.type === "WARM_DREAMLAND" || data.type === "WARM_ALL") {
     event.waitUntil(
-      Promise.all([warmMonaco(), warmExternal()]).then(() => {
+      Promise.all([warmTemplates(), warmMonaco(), warmExternal()]).then(() => {
         event.source?.postMessage?.({ type: "WARM_DREAMLAND_OK" });
       })
     );

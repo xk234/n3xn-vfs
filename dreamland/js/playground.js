@@ -42,6 +42,7 @@ function log(msg, level = "log", stack = "") {
   }
 
   consoleOut.appendChild(entry);
+  while (consoleOut.children.length > 300) consoleOut.firstElementChild?.remove();
   consoleOut.scrollTop = consoleOut.scrollHeight;
 }
 
@@ -131,7 +132,7 @@ async function applyTemplate(tpl) {
 
 async function buildAndRun() {
   const t0 = performance.now();
-  consoleOut.innerHTML = "";
+  log("Building preview…");
   try {
     lastBuiltHtml = await bundleProject({
       files,
@@ -192,9 +193,8 @@ editor = await initMonaco({
 });
 
 window.addEventListener("message", (e) => {
-  if (e.data?.type === "dl-console") {
-    log(e.data.msg, e.data.level, e.data.stack);
-  }
+  if (e.source !== previewFrame.contentWindow || e.data?.type !== "dl-console") return;
+  log(e.data.msg, e.data.level || "log", e.data.stack || "");
 });
 
 document.getElementById("run-btn").onclick = buildAndRun;

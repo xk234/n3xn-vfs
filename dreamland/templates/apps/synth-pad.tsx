@@ -11,7 +11,7 @@ const NOTES = [
   { label: "E5", freq: 659.25, color: "#fb7185" },
 ];
 
-export const App: Component<{}, {}, { lastNote: string; wave: OscillatorType }> = function () {
+export const App: Component<{}, {}, { lastNote: string; wave: OscillatorType }> = function (cx) {
   this.lastNote = "Tap a pad or press keys 1–8";
   this.wave = "triangle";
 
@@ -37,7 +37,7 @@ export const App: Component<{}, {}, { lastNote: string; wave: OscillatorType }> 
     this.lastNote = `Playing ${label} (${freq} Hz)`;
   };
 
-  this.mount = () => {
+  cx.mount = () => {
     window.addEventListener("keydown", (e) => {
       const idx = Number(e.key) - 1;
       if (NOTES[idx]) playNote(NOTES[idx].label, NOTES[idx].freq);
@@ -64,7 +64,7 @@ export const App: Component<{}, {}, { lastNote: string; wave: OscillatorType }> 
           <button
             class="pad"
             style={`border-color: ${n.color};`}
-            on:mousedown={() => playNote(n.label, n.freq)}
+            on:click={() => playNote(n.label, n.freq)}
           >
             <span class="note">{n.label}</span>
             <small>Key {i + 1}</small>

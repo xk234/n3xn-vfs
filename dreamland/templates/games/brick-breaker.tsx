@@ -1,9 +1,4 @@
-export const BRICK_BREAKER_TEMPLATE = {
-  id: "game-bricks",
-  category: "Games",
-  name: "🧱 Cyber Brick Breaker",
-  files: {
-    "/src/main.tsx": `import { css, type Component } from "dreamland/core";
+import { css, type Component } from "dreamland/core";
 
 export const App: Component<{}, { score: number; lives: number; msg: string }> = function () {
   this.score = 0;
@@ -60,11 +55,9 @@ export const App: Component<{}, { score: number; lives: number; msg: string }> =
       resetBall();
     }
 
-    // Paddle
     ctx.fillStyle = "#38bdf8";
     ctx.fillRect(paddleX, 272, 74, 10);
 
-    // Ball
     ctx.fillStyle = "#f8fafc";
     ctx.beginPath();
     ctx.arc(ballX, ballY, 6, 0, Math.PI * 2);
@@ -127,16 +120,13 @@ export const App: Component<{}, { score: number; lives: number; msg: string }> =
   );
 };
 
-App.style = css\`
+App.style = css`
   :scope { max-width: 430px; margin: 1.5rem auto; background: #0f172a; border: 1px solid #1e293b; border-radius: 14px; padding: 1rem; text-align: center; user-select: none; }
   .top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem; }
   strong { color: #38bdf8; }
   canvas { border: 1px solid #1e293b; border-radius: 8px; width: 100%; cursor: none; }
   button { background: #38bdf8; color: #090d16; border: none; padding: 0.35rem 0.8rem; border-radius: 6px; font-weight: 700; cursor: pointer; }
   p { margin-top: 0.6rem; font-size: 0.85rem; color: #94a3b8; }
-\`;
+`;
 
 export default App;
-`,
-  },
-};

@@ -1,7 +1,7 @@
 /* n3xn Dreamland SW v15 — Non-Redirected Clean Responses + CSS Fix + Universal Proxy */
-const SHELL = "n3xn-dreamland-shell-v17";
-const MONACO = "n3xn-dreamland-monaco-v17";
-const CDN = "n3xn-dreamland-cdn-v17";
+const SHELL = "n3xn-dreamland-shell-v18";
+const MONACO = "n3xn-dreamland-monaco-v18";
+const CDN = "n3xn-dreamland-cdn-v18";
 const VER = "monaco-editor@0.52.0";
 
 const BASE_PATH = new URL("./", self.location.href).pathname;
@@ -50,14 +50,14 @@ const MONACO_CORE = [
 const EXTERNAL_WARM = [
   JSDELIVR + "npm/esbuild-wasm@0.24.2/esm/browser.min.js",
   JSDELIVR + "npm/esbuild-wasm@0.24.2/esbuild.wasm",
-  JSDELIVR + "npm/dreamland@latest/dist/index.d.ts",
-  JSDELIVR + "npm/dreamland@latest/dist/core.d.ts",
-  ESM + "dreamland",
-  ESM + "dreamland/core",
-  ESM + "dreamland/router",
-  ESM + "dreamland/jsx-runtime",
-  ESM + "dreamland/jsx-dev-runtime",
-  ESM + "dreamland/ssr",
+  JSDELIVR + "npm/dreamland@0.1.3/dist/index.d.ts",
+  JSDELIVR + "npm/dreamland@0.1.3/dist/core.d.ts",
+  ESM + "dreamland@0.1.3",
+  ESM + "dreamland@0.1.3/core",
+  ESM + "dreamland@0.1.3/router",
+  ESM + "dreamland@0.1.3/jsx-runtime",
+  ESM + "dreamland@0.1.3/jsx-dev-runtime",
+  ESM + "dreamland@0.1.3/ssr",
 ];
 
 async function cleanResponse(res, fallbackMime) {

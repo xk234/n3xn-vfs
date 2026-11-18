@@ -110,7 +110,6 @@ export async function bundleProject({ files, proxies, onWarn }) {
         if (args.path.endsWith(".json")) return { contents: raw, loader: "json" };
         const loader = args.path.endsWith(".tsx") ? "tsx" : args.path.endsWith(".ts") ? "ts" : "jsx";
         const transformed = transformDreamlandMacros(raw);
-        // Pass the PROXY object (NOT unwrapped) to new Pointer(proxy, prop) — Pointer reads proxy[stateProxy].listen internally!
         const prefix =
           loader === "tsx" || loader === "jsx"
             ? `import { h as __dl_h, Fragment as __dl_Frag, Pointer as __dl_Pointer, createState as __dl_createState, stateListen as __dl_stateListen, stateProxy as __dl_stateProxy } from "dreamland/core";
@@ -135,7 +134,7 @@ const __dl_ptr = (obj, prop) => {
     const ptr = new __dl_Pointer(obj, prop);
     return __dl_attachMap(ptr, obj, prop);
   }
-  // Component props (`cx`): bridge via createState box + getter sync
+  // Component props (cx): bridge via createState box
   const box = __dl_createState({ val: obj[prop] });
   if (__dl_isStateProxy(obj)) {
     __dl_stateListen(obj, prop, (v) => { box.val = v; });

@@ -1,10 +1,10 @@
-/* n3xn Dreamland SW — scoped to ./ (/dreamland/ on CF Pages, /n3xn-vfs/dreamland/ on GH Pages) */
-const SHELL = "n3xn-dreamland-shell-v3";
-const MONACO = "n3xn-dreamland-monaco-v3";
-const CDN = "n3xn-dreamland-cdn-v3";
+/* n3xn Dreamland SW v4 — 100% Offline-First Proxy + Full TypeScript/Dreamland IntelliSense */
+const SHELL = "n3xn-dreamland-shell-v4";
+const MONACO = "n3xn-dreamland-monaco-v4";
+const CDN = "n3xn-dreamland-cdn-v4";
 const VER = "monaco-editor@0.52.0";
 
-// Dynamically resolves "/dreamland/" on CF Pages OR "/n3xn-vfs/dreamland/" on GitHub Pages
+// Works at /dreamland/ (CF Pages) AND /n3xn-vfs/dreamland/ (GitHub Pages)
 const BASE_PATH = new URL("./", self.location.href).pathname;
 const MONACO_PREFIX = BASE_PATH + "__monaco__/";
 const CDN_PREFIX = BASE_PATH + "__cdn__/";
@@ -12,7 +12,14 @@ const CDN_PREFIX = BASE_PATH + "__cdn__/";
 const JSDELIVR = "https://cdn.jsdelivr.net/";
 const ESM = "https://esm.sh/";
 
-const SHELL_URLS = ["./", "./index.html", "./playground.html", "./sw.js"];
+// Include both clean URLs (CF Pages) and .html URLs (GitHub Pages)
+const SHELL_URLS = [
+  "./",
+  "./index.html",
+  "./playground",
+  "./playground.html",
+  "./sw.js",
+];
 
 const MONACO_CORE = [
   "npm/" + VER + "/min/vs/loader.js",
@@ -22,8 +29,11 @@ const MONACO_CORE = [
   "npm/" + VER + "/min/vs/base/worker/workerMain.js",
   "npm/" + VER + "/min/vs/language/typescript/tsMode.js",
   "npm/" + VER + "/min/vs/language/typescript/tsWorker.js",
+  "npm/" + VER + "/min/vs/language/json/jsonMode.js",
   "npm/" + VER + "/min/vs/language/json/jsonWorker.js",
+  "npm/" + VER + "/min/vs/language/css/cssMode.js",
   "npm/" + VER + "/min/vs/language/css/cssWorker.js",
+  "npm/" + VER + "/min/vs/language/html/htmlMode.js",
   "npm/" + VER + "/min/vs/language/html/htmlWorker.js",
   "npm/" + VER + "/min/vs/basic-languages/typescript/typescript.js",
   "npm/" + VER + "/min/vs/basic-languages/javascript/javascript.js",
@@ -35,30 +45,47 @@ const MONACO_CORE = [
 const EXTERNAL = [
   JSDELIVR + "npm/esbuild-wasm@0.24.2/esm/browser.min.js",
   JSDELIVR + "npm/esbuild-wasm@0.24.2/esbuild.wasm",
+  JSDELIVR + "npm/dreamland@latest/dist/index.d.ts",
+  JSDELIVR + "npm/dreamland@latest/dist/core.d.ts",
   ESM + "dreamland",
   ESM + "dreamland/core",
   ESM + "dreamland/router",
 ];
 
 self.addEventListener("install", (event) => {
-  event.waitUntil((async () => {
-    const cache = await caches.open(SHELL);
-    await Promise.all(SHELL_URLS.map((u) => cache.add(u).catch(() => null)));
-    await warmMonaco();
-    await warmExternal();
-    await self.skipWaiting();
-  })());
+  event.waitUntil(
+    (async () => {
+      const shell = await caches.open(SHELL);
+      // Fetch with redirect: "follow" so Cloudflare's 308 .html -> clean-URL redirect succeeds!
+      await Promise.allSettled(
+        SHELL_URLS.map(async (rel) => {
+          const fullUrl = new URL(rel, self.location.href).href;
+          const res = await fetch(fullUrl, { redirect: "follow" });
+          if (res.ok) {
+            const buf = await res.arrayBuffer();
+            const ct = res.headers.get("Content-Type") || mimeFor(rel);
+            await shell.put(fullUrl, new Response(buf, { status: 200, headers: { "Content-Type": ct } }));
+          }
+        })
+      );
+      await warmMonaco();
+      await warmExternal();
+      await self.skipWaiting();
+    })()
+  );
 });
 
 self.addEventListener("activate", (event) => {
-  event.waitUntil((async () => {
-    const keep = new Set([SHELL, MONACO, CDN]);
-    const keys = await caches.keys();
-    await Promise.all(
-      keys.filter((k) => k.startsWith("n3xn-dreamland-") && !keep.has(k)).map((k) => caches.delete(k))
-    );
-    await self.clients.claim();
-  })());
+  event.waitUntil(
+    (async () => {
+      const keep = new Set([SHELL, MONACO, CDN]);
+      const keys = await caches.keys();
+      await Promise.all(
+        keys.filter((k) => k.startsWith("n3xn-dreamland-") && !keep.has(k)).map((k) => caches.delete(k))
+      );
+      await self.clients.claim();
+    })()
+  );
 });
 
 function mimeFor(path) {
@@ -66,8 +93,9 @@ function mimeFor(path) {
   if (p.endsWith(".wasm")) return "application/wasm";
   if (p.endsWith(".css")) return "text/css; charset=utf-8";
   if (p.endsWith(".js") || p.endsWith(".mjs")) return "application/javascript; charset=utf-8";
+  if (p.endsWith(".d.ts") || p.endsWith(".ts")) return "text/plain; charset=utf-8";
   if (p.endsWith(".json")) return "application/json";
-  if (p.endsWith(".html")) return "text/html; charset=utf-8";
+  if (p.endsWith(".html") || p.endsWith("/playground") || p.endsWith("/")) return "text/html; charset=utf-8";
   return "application/octet-stream";
 }
 
@@ -83,11 +111,11 @@ function isHtmlPoison(buf, ct) {
 
 async function warmMonaco() {
   const cache = await caches.open(MONACO);
-  await Promise.all(MONACO_CORE.map(async (rel) => {
-    try {
+  await Promise.allSettled(
+    MONACO_CORE.map(async (rel) => {
       const localKey = self.location.origin + MONACO_PREFIX + rel;
       if (await cache.match(localKey)) return;
-      const res = await fetch(JSDELIVR + rel, { mode: "cors", credentials: "omit" });
+      const res = await fetch(JSDELIVR + rel, { mode: "cors", credentials: "omit", redirect: "follow" });
       if (!res.ok) return;
       const buf = await res.arrayBuffer();
       const headers = new Headers({
@@ -96,22 +124,22 @@ async function warmMonaco() {
         "Access-Control-Allow-Origin": "*",
       });
       await cache.put(localKey, new Response(buf, { status: 200, headers }));
-    } catch (_) {}
-  }));
+    })
+  );
 }
 
 async function warmExternal() {
   const cache = await caches.open(CDN);
-  for (const u of EXTERNAL) {
-    try {
-      if (await cache.match(u)) continue;
+  await Promise.allSettled(
+    EXTERNAL.map(async (u) => {
       const res = await fetch(u, { mode: "cors", credentials: "omit", redirect: "follow" });
-      if (!res.ok) continue;
+      if (!res.ok) return;
       const buf = await res.arrayBuffer();
       let ct = res.headers.get("Content-Type") || mimeFor(u);
-      if (isHtmlPoison(buf, ct)) continue;
-      if (u.includes("esm.sh") && !ct.includes("javascript") && !ct.includes("wasm"))
+      if (isHtmlPoison(buf, ct)) return;
+      if (u.includes("esm.sh") && !ct.includes("javascript") && !ct.includes("wasm")) {
         ct = "application/javascript; charset=utf-8";
+      }
       const headers = new Headers({
         "Content-Type": ct,
         "Cache-Control": "public, max-age=31536000",
@@ -119,21 +147,24 @@ async function warmExternal() {
       });
       const out = new Response(buf.slice(0), { status: 200, headers });
       await cache.put(u, out.clone());
-      if (u.startsWith(JSDELIVR))
+      if (u.startsWith(JSDELIVR)) {
         await cache.put(self.location.origin + CDN_PREFIX + "jsdelivr/" + u.slice(JSDELIVR.length), out.clone());
-      else if (u.startsWith(ESM))
+      } else if (u.startsWith(ESM)) {
         await cache.put(self.location.origin + CDN_PREFIX + "esm/" + u.slice(ESM.length), out.clone());
-    } catch (_) {}
-  }
+      }
+    })
+  );
 }
 
+// Cache-First for Monaco proxy
 async function monacoProxy(req, url) {
   const cache = await caches.open(MONACO);
   const hit = await cache.match(req);
   if (hit) return hit;
+
   const rel = url.pathname.slice(MONACO_PREFIX.length) + url.search;
   try {
-    const res = await fetch(JSDELIVR + rel, { mode: "cors", credentials: "omit" });
+    const res = await fetch(JSDELIVR + rel, { mode: "cors", credentials: "omit", redirect: "follow" });
     if (!res.ok) return res;
     const buf = await res.arrayBuffer();
     const headers = new Headers({
@@ -145,19 +176,20 @@ async function monacoProxy(req, url) {
     await cache.put(req, out.clone());
     return out;
   } catch {
-    return new Response("/* dreamland monaco miss */", {
+    return new Response("/* offline monaco miss: " + rel + " */", {
       status: 503,
       headers: { "Content-Type": "application/javascript; charset=utf-8" },
     });
   }
 }
 
+// Cache-First for __cdn__/jsdelivr/ and __cdn__/esm/
 async function cdnProxy(req, url) {
   const rest = url.pathname.slice(CDN_PREFIX.length);
   let remote;
   if (rest.startsWith("jsdelivr/")) remote = JSDELIVR + rest.slice(9) + url.search;
   else if (rest.startsWith("esm/")) remote = ESM + rest.slice(4) + url.search;
-  else return new Response("bad dreamland __cdn__ path", { status: 400 });
+  else return new Response("bad __cdn__ path", { status: 400 });
 
   const cache = await caches.open(CDN);
   const hit = (await cache.match(req)) || (await cache.match(remote));
@@ -165,9 +197,10 @@ async function cdnProxy(req, url) {
     const buf = await hit.clone().arrayBuffer();
     const ct = hit.headers.get("Content-Type") || "";
     if (!isHtmlPoison(buf, ct)) return hit;
-    try { await cache.delete(req); } catch (_) {}
-    try { await cache.delete(remote); } catch (_) {}
+    await cache.delete(req).catch(() => {});
+    await cache.delete(remote).catch(() => {});
   }
+
   try {
     const res = await fetch(remote, { mode: "cors", credentials: "omit", redirect: "follow" });
     if (!res.ok) {
@@ -184,8 +217,9 @@ async function cdnProxy(req, url) {
         headers: { "Content-Type": "application/javascript; charset=utf-8" },
       });
     }
-    if (rest.startsWith("esm/") && !ct.includes("javascript") && !ct.includes("wasm"))
+    if (rest.startsWith("esm/") && !ct.includes("javascript") && !ct.includes("wasm")) {
       ct = "application/javascript; charset=utf-8";
+    }
     const headers = new Headers({
       "Content-Type": ct,
       "Cache-Control": "public, max-age=31536000",
@@ -196,7 +230,7 @@ async function cdnProxy(req, url) {
     await cache.put(remote, out.clone());
     return out;
   } catch {
-    return new Response("/* cdn offline */", {
+    return new Response("/* cdn offline: " + rest + " */", {
       status: 503,
       headers: { "Content-Type": "application/javascript; charset=utf-8" },
     });
@@ -219,23 +253,49 @@ self.addEventListener("fetch", (event) => {
   }
 
   if (url.pathname.startsWith(BASE_PATH)) {
-    event.respondWith((async () => {
-      try {
-        const net = await fetch(req);
-        if (net.ok) {
-          const cache = await caches.open(SHELL);
-          cache.put(req, net.clone()).catch(() => {});
-          return net;
+    event.respondWith(
+      (async () => {
+        const cache = await caches.open(SHELL);
+        // Normalize /dreamland/playground and /dreamland/playground.html so neither throws net errors
+        const isPlayground =
+          url.pathname.endsWith("/playground") || url.pathname.endsWith("/playground.html");
+        const lookupKeys = isPlayground
+          ? [
+              new URL("./playground", self.location.href).href,
+              new URL("./playground.html", self.location.href).href,
+              req,
+            ]
+          : [req, url.pathname];
+
+        for (const k of lookupKeys) {
+          const hit = await cache.match(k);
+          if (hit) {
+            // Stale-while-revalidate in background when online
+            fetch(req, { redirect: "follow" })
+              .then((net) => {
+                if (net.ok) cache.put(k, net.clone());
+              })
+              .catch(() => {});
+            return hit;
+          }
         }
-      } catch (_) {}
-      const cache = await caches.open(SHELL);
-      return (
-        (await cache.match(req)) ||
-        (await cache.match(url.pathname)) ||
-        (await cache.match("./playground.html")) ||
-        new Response("Dreamland offline", { status: 503 })
-      );
-    })());
+
+        try {
+          const net = await fetch(req, { redirect: "follow" });
+          if (net.ok) {
+            const clone = net.clone();
+            cache.put(req, clone).catch(() => {});
+            return net;
+          }
+        } catch (_) {}
+
+        return (
+          (await cache.match(new URL("./playground", self.location.href).href)) ||
+          (await cache.match(new URL("./playground.html", self.location.href).href)) ||
+          new Response("Dreamland Studio offline", { status: 503 })
+        );
+      })()
+    );
   }
 });
 

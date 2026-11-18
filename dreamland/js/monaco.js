@@ -104,6 +104,8 @@ export async function initMonaco({ monacoMin, jsdelivrProxy, container, files, i
           jsx: monaco.languages.typescript.JsxEmit.React,
           jsxFactory: "h",
           jsxFragmentFactory: "Fragment",
+          allowImportingTsExtensions: true,
+          noEmit: true,
           strict: false,
           allowNonTsExtensions: true,
         });

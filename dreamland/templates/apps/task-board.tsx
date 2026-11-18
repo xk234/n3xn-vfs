@@ -2,7 +2,7 @@ import { css, type Component } from "dreamland/core";
 
 type Task = { id: number; text: string; done: boolean };
 
-export const App: Component<{}, { draft: string; count: number }> = function () {
+export const App: Component<{}, {}, { draft: string; count: number }> = function () {
   const saved = localStorage.getItem("dl_tasks_v1");
   let items: Task[] = saved
     ? JSON.parse(saved)

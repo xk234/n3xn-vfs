@@ -13,13 +13,34 @@ const consoleOut = document.getElementById("console-out");
 const previewFrame = document.getElementById("preview");
 const fileListEl = document.getElementById("file-list");
 
-function log(msg, cls = "") {
-  const line = document.createElement("div");
-  if (cls) line.className = cls;
-  line.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
-  consoleOut.appendChild(line);
+function log(msg, level = "log", stack = "") {
+  const entry = document.createElement("div");
+  entry.className = "log-entry log-" + level;
+
+  const header = document.createElement("div");
+  header.className = "log-line";
+  const badge = level === "err" ? "✖" : level === "warn" ? "⚠" : level === "ok" ? "✔" : "›";
+  header.textContent = `[${new Date().toLocaleTimeString()}] ${badge} ${msg}`;
+  entry.appendChild(header);
+
+  if (stack) {
+    const pre = document.createElement("pre");
+    pre.className = "log-stack";
+    pre.textContent = stack;
+    entry.appendChild(pre);
+  }
+
+  consoleOut.appendChild(entry);
   consoleOut.scrollTop = consoleOut.scrollHeight;
 }
+
+// Capture host-page errors in the in-app console too
+window.addEventListener("error", (e) => {
+  log(`Studio Error: ${e.message}`, "err", e.error?.stack || "");
+});
+window.addEventListener("unhandledrejection", (e) => {
+  log(`Studio Rejection: ${e.reason}`, "err", e.reason?.stack || "");
+});
 
 // 1. Ensure scoped SW controls ./dreamland/ before loading local proxy assets
 if ("serviceWorker" in navigator) {
@@ -27,15 +48,15 @@ if ("serviceWorker" in navigator) {
   await navigator.serviceWorker.ready;
   if (!navigator.serviceWorker.controller) {
     statusBadge.textContent = "Activating SW…";
-    if (!sessionStorage.getItem("dl_sw_booted_v7")) {
-      sessionStorage.setItem("dl_sw_booted_v7", "1");
+    if (!sessionStorage.getItem("dl_sw_booted_v9")) {
+      sessionStorage.setItem("dl_sw_booted_v9", "1");
       location.reload();
       await new Promise(() => {});
     }
   }
   navigator.serviceWorker.addEventListener("message", (e) => {
     if (e.data?.type === "WARM_DREAMLAND_OK") {
-      log("Offline cache warmed (Monaco + TS Worker + esbuild + Dreamland plugins)", "log-ok");
+      log("Offline cache warmed (Monaco + TS Worker + esbuild + Dreamland plugins)", "ok");
       statusBadge.textContent = "Offline Ready";
     }
   });
@@ -93,18 +114,25 @@ async function buildAndRun() {
         jsdelivrProxy: JSDELIVR_PROXY,
         anyProxy: ANY_PROXY,
       },
+      onWarn: (w) => log(w, "warn"),
     });
     previewFrame.srcdoc = lastBuiltHtml;
     const ms = Math.round(performance.now() - t0);
     statusBadge.textContent = (navigator.onLine ? "Offline-First SW" : "Offline") + " · " + ms + "ms";
-    log(`Bundled offline-ready in ${ms}ms`, "log-ok");
+    log(`Bundled offline-ready in ${ms}ms`, "ok");
   } catch (err) {
     statusBadge.textContent = "Build Error";
-    (err?.errors ? err.errors.map((e) => e.text) : [String(err)]).forEach((m) => log(m, "log-err"));
+    if (err?.errors) {
+      err.errors.forEach((e) => {
+        const loc = e.location ? ` (${e.location.file}:${e.location.line}:${e.location.column})` : "";
+        log(e.text + loc, "err");
+      });
+    } else {
+      log(String(err), "err", err?.stack || "");
+    }
   }
 }
 
-// Boot Compiler + Monaco in parallel
 await initCompiler(JSDELIVR_PROXY);
 editor = await initMonaco({
   monacoMin: MONACO_MIN,
@@ -123,9 +151,11 @@ editor = await initMonaco({
   onRun: buildAndRun,
 });
 
+// Listen to rich console & error messages from the Dreamland preview iframe
 window.addEventListener("message", (e) => {
-  if (e.data?.type === "err") log(e.data.msg, "log-err");
-  if (e.data?.type === "log") log(e.data.msg);
+  if (e.data?.type === "dl-console") {
+    log(e.data.msg, e.data.level, e.data.stack);
+  }
 });
 
 document.getElementById("run-btn").onclick = buildAndRun;
@@ -133,7 +163,7 @@ document.getElementById("warm-btn").onclick = async () => {
   statusBadge.textContent = "Warming SW…";
   const reg = await navigator.serviceWorker?.ready;
   reg?.active?.postMessage({ type: "WARM_DREAMLAND" });
-  log("Sent WARM_DREAMLAND to offline SW", "log-ok");
+  log("Sent WARM_DREAMLAND to offline SW", "ok");
 };
 document.getElementById("new-file-btn").onclick = () => {
   const name = prompt("New file path:", "/src/Component.tsx");

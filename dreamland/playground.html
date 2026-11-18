@@ -8,7 +8,7 @@
   <link rel="stylesheet" href="./playground.css" />
 </head>
 <body data-n3xn="safe">
-  <div class="topbar">
+  <header class="topbar">
     <div class="brand">
       <span>⚡ n3xn Dreamland Studio</span>
       <span class="badge" id="status-badge">Booting SW…</span>
@@ -16,7 +16,7 @@
       <a class="nav" href="../explorer/">Explorer</a>
     </div>
     <div class="actions">
-      <label style="font-size:12px;color:#a1a1aa;display:flex;align-items:center;gap:4px;cursor:pointer;">
+      <label class="chk-label">
         <input type="checkbox" id="autorun-chk" checked /> Auto-Run
       </label>
       <button type="button" id="warm-btn">Warm Offline Cache</button>
@@ -24,20 +24,32 @@
       <button type="button" id="export-btn">Export .HTML</button>
       <button type="button" class="primary" id="run-btn">▶ Run (Ctrl+S)</button>
     </div>
-  </div>
-  <div class="workspace">
+  </header>
+
+  <main class="workspace">
     <aside class="sidebar">
-      <div class="sidebar-head"><span>PROJECT FILES</span>
-        <button type="button" id="new-file-btn" style="padding:2px 6px;">+ File</button>
+      <div class="sidebar-head">
+        <span>PROJECT FILES</span>
+        <button type="button" id="new-file-btn" class="btn-sm">+ File</button>
       </div>
       <div class="file-list" id="file-list"></div>
     </aside>
-    <section class="editor-pane"><div id="monaco-root"></div></section>
+
+    <section class="editor-pane">
+      <div id="monaco-root"></div>
+    </section>
+
     <section class="preview-pane">
-      <iframe id="preview" title="preview" allow="autoplay; fullscreen; gamepad" sandbox="allow-scripts allow-modals allow-pointer-lock allow-forms"></iframe>
+      <iframe
+        id="preview"
+        title="Dreamland Preview"
+        allow="autoplay; fullscreen; gamepad"
+        sandbox="allow-scripts allow-modals allow-pointer-lock allow-forms"
+      ></iframe>
       <div class="console-bar" id="console-out"></div>
     </section>
-  </div>
-  <script type="module" src="./playground.js"></script>
+  </main>
+
+  <script type="module" src="./js/playground.js"></script>
 </body>
 </html>

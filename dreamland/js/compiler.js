@@ -110,16 +110,17 @@ export async function bundleProject({ files, proxies, onWarn }) {
         if (args.path.endsWith(".json")) return { contents: raw, loader: "json" };
         const loader = args.path.endsWith(".tsx") ? "tsx" : args.path.endsWith(".ts") ? "ts" : "jsx";
         const transformed = transformDreamlandMacros(raw);
-        // Safely wraps state objects & Pointers for Dreamland 0.1.3 (including .map() reactivity)
+        // Pass the PROXY object (NOT unwrapped) to new Pointer(proxy, prop) — Pointer reads proxy[stateProxy].listen internally!
         const prefix =
           loader === "tsx" || loader === "jsx"
             ? `import { h as __dl_h, Fragment as __dl_Frag, Pointer as __dl_Pointer, createState as __dl_createState, stateListen as __dl_stateListen, stateProxy as __dl_stateProxy } from "dreamland/core";
-const __dl_attachMap = (ptr, target, prop) => {
+const __dl_isStateProxy = (obj) => Boolean(obj && typeof obj === "object" && obj[__dl_stateProxy] && typeof obj[__dl_stateProxy].listen === "function");
+const __dl_attachMap = (ptr, stateProxyObj, prop) => {
   if (ptr && typeof ptr.map !== "function") {
     ptr.map = (mapFn) => {
-      const box = __dl_createState({ val: mapFn(target[prop]) });
+      const box = __dl_createState({ val: mapFn(stateProxyObj[prop]) });
       try {
-        __dl_stateListen(target, prop, (v) => { box.val = mapFn(v); });
+        __dl_stateListen(stateProxyObj, prop, (v) => { box.val = mapFn(v); });
       } catch (_) {}
       return new __dl_Pointer(box, "val");
     };
@@ -130,17 +131,24 @@ const __dl_ptr = (obj, prop) => {
   if (!obj) return undefined;
   if (obj instanceof __dl_Pointer) return obj;
   if (obj[prop] instanceof __dl_Pointer) return obj[prop];
-  const stateObj = __dl_stateProxy ? __dl_stateProxy(obj) : obj;
-  const ptr = new __dl_Pointer(stateObj, prop);
-  return __dl_attachMap(ptr, stateObj, prop);
+  if (__dl_isStateProxy(obj)) {
+    const ptr = new __dl_Pointer(obj, prop);
+    return __dl_attachMap(ptr, obj, prop);
+  }
+  // Component props (`cx`): bridge via createState box + getter sync
+  const box = __dl_createState({ val: obj[prop] });
+  if (__dl_isStateProxy(obj)) {
+    __dl_stateListen(obj, prop, (v) => { box.val = v; });
+  }
+  const ptr = new __dl_Pointer(box, "val");
+  return __dl_attachMap(ptr, box, "val");
 };
 const __dl_tpl = (fn, deps) => {
   const box = __dl_createState({ val: fn() });
   for (const [depObj, depProp] of deps) {
-    if (depObj) {
+    if (__dl_isStateProxy(depObj)) {
       try {
-        const s = __dl_stateProxy ? __dl_stateProxy(depObj) : depObj;
-        __dl_stateListen(s, depProp, () => { box.val = fn(); });
+        __dl_stateListen(depObj, depProp, () => { box.val = fn(); });
       } catch (_) {}
     }
   }

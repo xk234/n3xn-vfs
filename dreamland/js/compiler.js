@@ -17,7 +17,7 @@ function transformDreamlandMacros(src) {
     /\buse\(\s*([a-zA-Z_$][\w$.]*?)\.([a-zA-Z_$][\w$]*)\s*\)/g,
     (_match, target, prop) => `__dl_ptr(${target}, "${prop}")`
   );
-  // 2. Transform `use\`...\`` template literals -> reactive Pointer bound via stateListen
+  // 2. Transform `use\`...\`` template literals -> reactive Pointer
   out = out.replace(/\buse`([^`]*)`/g, (_match, tpl) => {
     const deps = [];
     tpl.replace(/\$\{\s*([a-zA-Z_$][\w$.]*?)\.([a-zA-Z_$][\w$]*)\s*\}/g, (_m, obj, prop) => {
@@ -110,25 +110,26 @@ export async function bundleProject({ files, proxies, onWarn }) {
         if (args.path.endsWith(".json")) return { contents: raw, loader: "json" };
         const loader = args.path.endsWith(".tsx") ? "tsx" : args.path.endsWith(".ts") ? "ts" : "jsx";
         const transformed = transformDreamlandMacros(raw);
-        // Subclass Dreamland's Pointer with self-contained listener array so `e.listen()` always works
+        // Clean reactive Pointer bridge that tracks property mutations without misusing stateListen's signature
         const prefix =
           loader === "tsx" || loader === "jsx"
-            ? `import { h as __dl_h, Fragment as __dl_Frag, Pointer as __dl_Pointer, stateListen as __dl_stateListen, stateProxy as __dl_stateProxy } from "dreamland/core";
+            ? `import { h as __dl_h, Fragment as __dl_Frag, Pointer as __dl_Pointer, stateProxy as __dl_stateProxy } from "dreamland/core";
 class __dl_ReactivePointer extends __dl_Pointer {
   constructor(getFn, setFn) {
     super(getFn, setFn);
     this._subs = [];
     this._val = getFn();
   }
-  get value() {
-    return this._val;
-  }
+  get value() { return this._val; }
   set value(v) {
+    if (Object.is(this._val, v)) return;
     this._val = v;
     for (const fn of this._subs) fn(v);
   }
+  get val() { return this._val; }
+  set val(v) { this.value = v; }
   listen(fn) {
-    this._subs.push(fn);
+    if (typeof fn === "function") this._subs.push(fn);
   }
   map(mapFn) {
     const child = new __dl_ReactivePointer(() => mapFn(this._val), () => {});
@@ -136,37 +137,50 @@ class __dl_ReactivePointer extends __dl_Pointer {
     return child;
   }
 }
-const __dl_makeBoxPtr = (initialVal, subscribeFn) => {
-  let cur = initialVal;
-  const ptr = new __dl_ReactivePointer(() => cur, (v) => { cur = v; });
-  if (typeof subscribeFn === "function") {
-    subscribeFn((nextVal) => {
-      cur = nextVal;
-      ptr.value = nextVal;
-    });
+const __dl_watchers = new WeakMap();
+const __dl_watchProp = (obj, prop, cb) => {
+  if (!obj || (typeof obj !== "object" && typeof obj !== "function")) return;
+  let propMap = __dl_watchers.get(obj);
+  if (!propMap) {
+    propMap = new Map();
+    __dl_watchers.set(obj, propMap);
   }
-  return ptr;
+  let subs = propMap.get(prop);
+  if (!subs) {
+    subs = new Set();
+    propMap.set(prop, subs);
+    const target = (typeof obj === "object" && __dl_stateProxy in obj) ? obj[__dl_stateProxy] : obj;
+    let cur = target[prop];
+    const desc = Object.getOwnPropertyDescriptor(target, prop);
+    if (!desc || desc.configurable) {
+      Object.defineProperty(target, prop, {
+        configurable: true,
+        enumerable: true,
+        get() { return desc && desc.get ? desc.get.call(this) : cur; },
+        set(next) {
+          if (desc && desc.set) desc.set.call(this, next);
+          else cur = next;
+          for (const fn of subs) fn(next);
+        }
+      });
+    }
+  }
+  subs.add(cb);
 };
 const __dl_ptr = (obj, prop) => {
   if (!obj) return undefined;
   if (obj instanceof __dl_Pointer) return obj;
   if (obj[prop] instanceof __dl_Pointer) return obj[prop];
-  return __dl_makeBoxPtr(obj[prop], (emit) => {
-    try {
-      __dl_stateListen(obj, prop, (v) => emit(v));
-    } catch (_) {}
-  });
+  const ptr = new __dl_ReactivePointer(() => obj[prop], (v) => { obj[prop] = v; });
+  __dl_watchProp(obj, prop, (v) => { ptr.value = v; });
+  return ptr;
 };
 const __dl_tpl = (fn, deps) => {
-  return __dl_makeBoxPtr(fn(), (emit) => {
-    for (const [depObj, depProp] of deps) {
-      if (depObj) {
-        try {
-          __dl_stateListen(depObj, depProp, () => emit(fn()));
-        } catch (_) {}
-      }
-    }
-  });
+  const ptr = new __dl_ReactivePointer(() => fn(), () => {});
+  for (const [depObj, depProp] of deps) {
+    __dl_watchProp(depObj, depProp, () => { ptr.value = fn(); });
+  }
+  return ptr;
 };\n`
             : "";
         return { contents: prefix + transformed, loader };

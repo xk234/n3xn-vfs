@@ -79,7 +79,7 @@ function compileDreamlandTsx(code, filename) {
     plugins: [dreamlandBabelPlugin],
   });
 
-const runtimeHeader = [
+  const runtimeHeader = [
     'import {',
     '  h,',
     '  Fragment,',

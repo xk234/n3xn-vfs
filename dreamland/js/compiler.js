@@ -110,12 +110,20 @@ export async function bundleProject({ files, proxies, onWarn }) {
         if (args.path.endsWith(".json")) return { contents: raw, loader: "json" };
         const loader = args.path.endsWith(".tsx") ? "tsx" : args.path.endsWith(".ts") ? "ts" : "jsx";
         const transformed = transformDreamlandMacros(raw);
-        // Always back Pointers with genuine `createState({ val })` boxes synced via `stateListen`
         const prefix =
           loader === "tsx" || loader === "jsx"
-            ? `import { h as __dl_h, Fragment as __dl_Frag, Pointer as __dl_Pointer, createState as __dl_createState, stateListen as __dl_stateListen } from "dreamland/core";
+            ? `import { h as __dl_h, Fragment as __dl_Frag, Pointer as __dl_Pointer, createState as __dl_createState, stateListen as __dl_stateListen, stateProxy as __dl_stateProxy } from "dreamland/core";
+const __dl_initSlot = (proxyObj, prop) => {
+  const internal = proxyObj && proxyObj[__dl_stateProxy];
+  if (internal) {
+    if (!internal.listeners) internal.listeners = {};
+    if (!Array.isArray(internal.listeners[prop])) internal.listeners[prop] = [];
+  }
+  return internal;
+};
 const __dl_makeBoxPtr = (initialVal, subscribeFn) => {
   const box = __dl_createState({ val: initialVal });
+  __dl_initSlot(box, "val");
   if (typeof subscribeFn === "function") {
     subscribeFn((nextVal) => { box.val = nextVal; });
   }
@@ -129,6 +137,7 @@ const __dl_ptr = (obj, prop) => {
   if (!obj) return undefined;
   if (obj instanceof __dl_Pointer) return obj;
   if (obj[prop] instanceof __dl_Pointer) return obj[prop];
+  __dl_initSlot(obj, prop);
   return __dl_makeBoxPtr(obj[prop], (emit) => {
     try {
       __dl_stateListen(obj, prop, (v) => emit(v));
@@ -139,6 +148,7 @@ const __dl_tpl = (fn, deps) => {
   return __dl_makeBoxPtr(fn(), (emit) => {
     for (const [depObj, depProp] of deps) {
       if (depObj) {
+        __dl_initSlot(depObj, depProp);
         try {
           __dl_stateListen(depObj, depProp, () => emit(fn()));
         } catch (_) {}

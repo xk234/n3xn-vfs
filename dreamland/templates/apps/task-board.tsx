@@ -2,7 +2,7 @@ import { css, type Component } from "dreamland/core";
 
 type Task = { id: number; text: string; done: boolean };
 
-export const App: Component<{}, {}, { draft: string; count: number }> = function () {
+export const App: Component<{}, {}, { draft: string; count: number }> = function (cx) {
   const saved = localStorage.getItem("dl_tasks_v1");
   let items: Task[] = saved
     ? JSON.parse(saved)
@@ -57,13 +57,13 @@ export const App: Component<{}, {}, { draft: string; count: number }> = function
     if (!clean) return;
     items.unshift({ id: Date.now(), text: clean, done: false });
     this.draft = "";
-    const input = this.root.querySelector("input");
+    const input = cx.root.querySelector("input");
     if (input) input.value = "";
     renderList();
   };
 
-  this.mount = () => {
-    listEl = this.root.querySelector("ul");
+  cx.mount = () => {
+    listEl = cx.root.querySelector("ul");
     renderList();
   };
 

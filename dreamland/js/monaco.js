@@ -1,51 +1,40 @@
-const DREAMLAND_AMBIENT_DTS = `
+const DREAMLAND_GLOBAL_DTS = `
+declare global {
+  function use<T>(value: T): any;
+  function use(strings: TemplateStringsArray, ...values: any[]): any;
+}
+export {};
+`;
+
+const DREAMLAND_FALLBACK_DTS = `
 declare module "dreamland/core" {
-  export type Stateful<T> = T;
-  export type ComponentContext<Props = {}, State = {}> = Props & {
+  export type ComponentContext<Props = {}, Context = {}> = Props & Context & {
     root: HTMLElement;
     mount?: () => void;
   };
-  export type Component<Props = {}, State = {}> = (
-    this: State & Props & { root: HTMLElement; mount?: () => void },
-    cx: ComponentContext<Props, State>
-  ) => HTMLElement | any;
-  export function h(tag: any, props: any, ...children: any[]): HTMLElement;
+  export type Component<Props = {}, Context = {}, State = {}> = (
+    this: Props & State & { root: HTMLElement; mount?: () => void },
+    cx: ComponentContext<Props, Context>
+  ) => Node | null | undefined;
+  export function h(tag: any, props: any, ...children: any[]): Node;
+  export namespace h {
+    type Element = Node;
+    interface IntrinsicElements { [name: string]: any; }
+    interface ElementChildrenAttribute { children: {}; }
+  }
   export function Fragment(props: any): DocumentFragment;
   export function css(strings: TemplateStringsArray, ...values: any[]): string;
-  export function use<T>(val: T): any;
-  export function use(strings: TemplateStringsArray, ...values: any[]): string;
 }
 declare module "dreamland" {
   export * from "dreamland/core";
 }
 declare module "dreamland/router" {
-  import { Component } from "dreamland/core";
+  import type { Component } from "dreamland/core";
   export const Router: Component<{ children?: any }>;
   export const Route: Component<{ path: string; show?: any; children?: any }>;
   export const Link: Component<{ href: string; children?: any }>;
   export function navigate(path: string): void;
 }
-declare module "dreamland/jsx-runtime" {
-  export const jsx: any;
-  export const jsxs: any;
-  export const Fragment: any;
-}
-declare module "dreamland/jsx-dev-runtime" {
-  export const jsxDEV: any;
-  export const Fragment: any;
-}
-declare global {
-  const h: any;
-  const Fragment: any;
-  function use<T>(val: T): any;
-  function use(strings: TemplateStringsArray, ...values: any[]): string;
-  namespace JSX {
-    interface IntrinsicElements {
-      [elemName: string]: any;
-    }
-  }
-}
-export {};
 `;
 
 export function langForPath(path) {
@@ -100,14 +89,15 @@ export async function initMonaco({ monacoMin, jsdelivrProxy, container, files, i
         tsDefaults.setCompilerOptions({
           target: monaco.languages.typescript.ScriptTarget.ES2022,
           module: monaco.languages.typescript.ModuleKind.ESNext,
-          moduleResolution: monaco.languages.typescript.ModuleResolutionKind.NodeJs,
+          moduleResolution: monaco.languages.typescript.ModuleResolutionKind.Bundler,
           jsx: monaco.languages.typescript.JsxEmit.React,
           jsxFactory: "h",
           jsxFragmentFactory: "Fragment",
           allowImportingTsExtensions: true,
+          allowNonTsExtensions: true,
           noEmit: true,
           strict: false,
-          allowNonTsExtensions: true,
+          skipLibCheck: true,
         });
         tsDefaults.setDiagnosticsOptions({
           noSemanticValidation: false,
@@ -115,16 +105,25 @@ export async function initMonaco({ monacoMin, jsdelivrProxy, container, files, i
         });
         tsDefaults.setEagerModelSync(true);
 
-        tsDefaults.addExtraLib(DREAMLAND_AMBIENT_DTS, "file:///node_modules/@types/dreamland-ambient/index.d.ts");
+        // Keep editor declarations on the exact same version as the runtime bundle.
+        let loadedPinnedTypes = false;
         try {
-          const dtsRes = await fetch(jsdelivrProxy + "npm/dreamland@latest/dist/core.d.ts");
+          const dtsRes = await fetch(jsdelivrProxy + "npm/dreamland@0.1.3/dist/core.d.ts");
           if (dtsRes.ok) {
             const upstreamDts = await dtsRes.text();
-            if (!upstreamDts.trimStart().startsWith("<!")) {
+            if (upstreamDts.trim() && !upstreamDts.trimStart().startsWith("<")) {
               tsDefaults.addExtraLib(upstreamDts, "file:///node_modules/dreamland/core.d.ts");
+              loadedPinnedTypes = true;
             }
           }
-        } catch (_) {}
+        } catch (error) {
+          console.warn("Could not load pinned Dreamland declarations; using editor fallback types.", error);
+        }
+
+        tsDefaults.addExtraLib(DREAMLAND_GLOBAL_DTS, "file:///node_modules/@types/dreamland-globals/index.d.ts");
+        if (!loadedPinnedTypes) {
+          tsDefaults.addExtraLib(DREAMLAND_FALLBACK_DTS, "file:///node_modules/@types/dreamland-fallback/index.d.ts");
+        }
 
         for (const [p, code] of Object.entries(files)) {
           getOrCreateModel(p, code);

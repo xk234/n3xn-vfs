@@ -3,9 +3,9 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>n3xn Dreamland</title>
-  <meta http-equiv="refresh" content="0;url=playground.html" />
-  <link rel="canonical" href="playground.html" />
+  <title>n3xn Dreamland Studio</title>
+  <meta http-equiv="refresh" content="0;url=playground" />
+  <link rel="canonical" href="playground" />
   <style>
     body {
       margin: 0;
@@ -20,7 +20,12 @@
   </style>
 </head>
 <body>
-  <p>Opening <a href="playground.html">Dreamland Studio</a>…</p>
-  <script>location.replace("playground.html");</script>
+  <p>Opening <a href="playground">Dreamland Studio</a>…</p>
+  <script>
+    if ("serviceWorker" in navigator) {
+      navigator.serviceWorker.register("./sw.js", { scope: "./" }).catch(() => {});
+    }
+    location.replace("playground");
+  </script>
 </body>
 </html>

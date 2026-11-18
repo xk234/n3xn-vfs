@@ -11,21 +11,26 @@ export async function initCompiler(jsdelivrProxy) {
   });
 }
 
-// Transforms Dreamland's `use(...)` macro into real Dreamland Pointer / computed bindings
+// Compiles Dreamland's `use(...)` macro into Dreamland 0.1.3 Pointer / stateListen reactivity
 function transformDreamlandMacros(src) {
   // 1. Transform `use(target.prop)` -> `__dl_ptr(target, "prop")`
   let out = src.replace(
     /\buse\(\s*([a-zA-Z_$][\w$.]*?)\.([a-zA-Z_$][\w$]*)\s*\)/g,
     (_match, target, prop) => `__dl_ptr(${target}, "${prop}")`
   );
-  // 2. Transform `use\`...\`` template strings -> `__dl_tpl(() => \`...\`)`
+  // 2. Transform `use\`...\`` template literals -> reactive Pointer bound via stateListen
   out = out.replace(/\buse`([^`]*)`/g, (_match, tpl) => {
-    return `__dl_tpl(() => \`${tpl}\`)`;
+    const deps = [];
+    tpl.replace(/\$\{\s*([a-zA-Z_$][\w$.]*?)\.([a-zA-Z_$][\w$]*)\s*\}/g, (_m, obj, prop) => {
+      deps.push(`[${obj}, "${prop}"]`);
+      return "";
+    });
+    return `__dl_tpl(() => \`${tpl}\`, [${deps.join(", ")}])`;
   });
   return out;
 }
 
-export async function bundleProject({ files, proxies }) {
+export async function bundleProject({ files, proxies, onWarn }) {
   const { esmProxy, jsdelivrProxy, anyProxy } = proxies;
   const cssChunks = [];
 
@@ -106,22 +111,26 @@ export async function bundleProject({ files, proxies }) {
         if (args.path.endsWith(".json")) return { contents: raw, loader: "json" };
         const loader = args.path.endsWith(".tsx") ? "tsx" : args.path.endsWith(".ts") ? "ts" : "jsx";
         const transformed = transformDreamlandMacros(raw);
-        // Inject Dreamland runtime helpers + real Pointer constructor
+        // Uses exact Dreamland 0.1.3 exports: Pointer, createState, stateListen
         const prefix =
           loader === "tsx" || loader === "jsx"
-            ? `import * as __dl_mod from "dreamland/core";
-const { h: __dl_h, Fragment: __dl_Frag } = __dl_mod;
+            ? `import { h as __dl_h, Fragment as __dl_Frag, Pointer as __dl_Pointer, createState as __dl_createState, stateListen as __dl_stateListen } from "dreamland/core";
 const __dl_ptr = (obj, prop) => {
-  if (__dl_mod.Pointer) return new __dl_mod.Pointer(obj, prop);
-  if (__dl_mod.use) return __dl_mod.use(obj, prop);
-  return obj[prop];
+  if (!obj) return undefined;
+  if (obj instanceof __dl_Pointer) return obj;
+  if (obj[prop] instanceof __dl_Pointer) return obj[prop];
+  return new __dl_Pointer(obj, prop);
 };
-const __dl_tpl = (fn) => {
-  if (__dl_mod.Pointer) {
-    const s = __dl_mod.createState ? __dl_mod.createState({ val: fn() }) : { val: fn() };
-    return new __dl_mod.Pointer(s, "val");
+const __dl_tpl = (fn, deps) => {
+  const box = __dl_createState({ val: fn() });
+  for (const [depObj, depProp] of deps) {
+    if (depObj) {
+      try {
+        __dl_stateListen(depObj, depProp, () => { box.val = fn(); });
+      } catch (_) {}
+    }
   }
-  return fn();
+  return new __dl_Pointer(box, "val");
 };\n`
             : "";
         return { contents: prefix + transformed, loader };
@@ -131,12 +140,11 @@ const __dl_tpl = (fn) => {
 
   const virtualEntry = `
     import * as Entry from "/src/main.tsx";
-    import * as DL from "dreamland/core";
-    console.log("[Dreamland runtime exports]", Object.keys(DL));
+    import { h } from "dreamland/core";
     const root = document.getElementById("app");
     if (root && root.childNodes.length === 0) {
       const C = Entry.default || Entry.App;
-      if (typeof C === "function") root.appendChild(DL.h(C, {}));
+      if (typeof C === "function") root.appendChild(h(C, {}));
     }
   `;
 
@@ -152,8 +160,45 @@ const __dl_tpl = (fn) => {
     plugins: [vfsPlugin],
   });
 
+  if (out.warnings?.length && onWarn) {
+    out.warnings.forEach((w) => onWarn(w.text));
+  }
+
   const js = out.outputFiles[0].text;
-  const runtimeShim = `<script>(()=>{try{localStorage.getItem("_")}catch{const m=new Map(),s={getItem:k=>m.has(k)?m.get(k):null,setItem:(k,v)=>m.set(k,String(v)),removeItem:k=>m.delete(k),clear:()=>m.clear()};Object.defineProperty(window,"localStorage",{value:s});Object.defineProperty(window,"sessionStorage",{value:s})}window.addEventListener("error",e=>parent.postMessage({type:"err",msg:e.message},"*"));["log","warn","error"].forEach(fn=>{const o=console[fn];console[fn]=(...a)=>{o(...a);parent.postMessage({type:fn==="error"?"err":"log",msg:a.join(" ")},"*")}})})();<\/script>`;
+
+  // Full in-app Console & Crash Reporter (captures errors, stack traces, rejections, objects, warnings, logs)
+  const runtimeShim = `<script>(()=>{
+    try{localStorage.getItem("_")}catch{
+      const m=new Map(),s={getItem:k=>m.has(k)?m.get(k):null,setItem:(k,v)=>m.set(k,String(v)),removeItem:k=>m.delete(k),clear:()=>m.clear()};
+      Object.defineProperty(window,"localStorage",{value:s});
+      Object.defineProperty(window,"sessionStorage",{value:s});
+    }
+    const fmt = (v) => {
+      if (v instanceof Error) return v.stack || (v.name + ": " + v.message);
+      if (typeof v === "object" && v !== null) {
+        try { return JSON.stringify(v, null, 2); } catch { return Object.prototype.toString.call(v); }
+      }
+      return String(v);
+    };
+    const send = (level, msg, stack = "") => {
+      parent.postMessage({ type: "dl-console", level, msg, stack }, "*");
+    };
+    window.addEventListener("error", (e) => {
+      const loc = e.filename ? \` (\${e.filename}:\${e.lineno}:\${e.colno})\` : "";
+      send("err", (e.message || "Runtime Error") + loc, e.error?.stack || "");
+    });
+    window.addEventListener("unhandledrejection", (e) => {
+      send("err", "Unhandled Promise Rejection: " + fmt(e.reason), e.reason?.stack || "");
+    });
+    ["log", "info", "warn", "error", "debug"].forEach((fn) => {
+      const orig = console[fn];
+      console[fn] = (...args) => {
+        orig.apply(console, args);
+        const level = fn === "error" ? "err" : fn === "warn" ? "warn" : "log";
+        send(level, args.map(fmt).join(" "));
+      };
+    });
+  })();<\/script>`;
 
   return (
     "<!doctype html><html><head><meta charset=UTF-8><style>*{box-sizing:border-box;margin:0;padding:0}body{background:#090d16;color:#f8fafc;font-family:system-ui}" +

@@ -39,7 +39,7 @@
   <div class="topbar">
     <div class="brand">
       <span>⚡ n3xn Dreamland Studio</span>
-      <span class="badge" id="status-badge">Booting Offline SW…</span>
+      <span class="badge" id="status-badge">Booting SW…</span>
       <a class="nav" href="../">VFS</a>
       <a class="nav" href="../explorer/">Explorer</a>
     </div>
@@ -73,7 +73,8 @@
     const MONACO_VS = MONACO_MIN + "/vs";
     const JSDELIVR_PROXY = BASE_URL + "__cdn__/jsdelivr/";
     const ESM_PROXY = BASE_URL + "__cdn__/esm/";
-    const STORAGE_KEY = "n3xn_dreamland_vfs_v5";
+    const ANY_PROXY = BASE_URL + "__cdn__/any/";
+    const STORAGE_KEY = "n3xn_dreamland_vfs_v6";
 
     const statusBadge = document.getElementById("status-badge");
     const consoleOut = document.getElementById("console-out");
@@ -88,34 +89,34 @@
       consoleOut.scrollTop = consoleOut.scrollHeight;
     }
 
-    // 1. Offline-First Guarantee: Ensure ./sw.js controls this page before loading __monaco__/ and __cdn__/
+    // 1. Ensure ./sw.js controls this page before requesting __monaco__/ or __cdn__/
     if ("serviceWorker" in navigator) {
-      const reg = await navigator.serviceWorker.register("./sw.js", { scope: "./" });
+      await navigator.serviceWorker.register("./sw.js", { scope: "./" });
       await navigator.serviceWorker.ready;
       if (!navigator.serviceWorker.controller) {
-        statusBadge.textContent = "Activating Offline SW…";
-        if (!sessionStorage.getItem("dl_sw_booted")) {
-          sessionStorage.setItem("dl_sw_booted", "1");
+        statusBadge.textContent = "Activating SW…";
+        if (!sessionStorage.getItem("dl_sw_booted_v5")) {
+          sessionStorage.setItem("dl_sw_booted_v5", "1");
           location.reload();
           await new Promise(() => {});
         }
       }
       navigator.serviceWorker.addEventListener("message", (e) => {
         if (e.data?.type === "WARM_DREAMLAND_OK") {
-          log("Offline cache warmed (Monaco + TS Worker + esbuild + Dreamland)", "log-ok");
+          log("Offline cache warmed (Monaco + TS Worker + esbuild + all Dreamland plugins)", "log-ok");
           statusBadge.textContent = "Offline Ready";
         }
       });
     }
 
-    // 2. Load esbuild-wasm strictly through local SW __cdn__/jsdelivr/ proxy
+    // 2. Load esbuild-wasm from local SW proxy
     const esbuild = await import(JSDELIVR_PROXY + "npm/esbuild-wasm@0.24.2/esm/browser.min.js");
     await esbuild.initialize({
       wasmURL: JSDELIVR_PROXY + "npm/esbuild-wasm@0.24.2/esbuild.wasm",
       worker: false,
     });
 
-    // 3. Load Monaco loader.js strictly through local SW __monaco__/ proxy
+    // 3. Load Monaco loader.js from local SW proxy
     await new Promise((res, rej) => {
       const s = document.createElement("script");
       s.src = MONACO_VS + "/loader.js";
@@ -262,7 +263,7 @@ HUD.style = css\`
       renderSidebar();
     }
 
-    // Built-in Dreamland TSX ambient types so IntelliSense works 100% offline even before remote .d.ts loads
+    // Complete ambient types for Dreamland Core + Router + JSX
     const DREAMLAND_AMBIENT_DTS = `
 declare module "dreamland/core" {
   export type Stateful<T> = T;
@@ -280,6 +281,16 @@ declare module "dreamland/core" {
   export function use<T>(val: T): any;
   export function use(strings: TemplateStringsArray, ...values: any[]): string;
 }
+declare module "dreamland" {
+  export * from "dreamland/core";
+}
+declare module "dreamland/router" {
+  import { Component } from "dreamland/core";
+  export const Router: Component<{ children?: any }>;
+  export const Route: Component<{ path: string; show?: any; children?: any }>;
+  export const Link: Component<{ href: string; children?: any }>;
+  export function navigate(path: string): void;
+}
 declare global {
   function use<T>(val: T): any;
   function use(strings: TemplateStringsArray, ...values: any[]): string;
@@ -293,7 +304,6 @@ export {};
 `;
 
     await new Promise((resolve, reject) => {
-      // CRITICAL FIX: baseUrl ends at /min/ (NOT /min/vs/) so workerMain.js loads vs/language/typescript/tsWorker.js cleanly!
       window.MonacoEnvironment = {
         getWorker: function () {
           const workerCode = `
@@ -315,14 +325,12 @@ export {};
           strict: false,
           allowNonTsExtensions: true,
         });
-        // Enable FULL TypeScript IntelliSense & Diagnostics
         tsDefaults.setDiagnosticsOptions({
           noSemanticValidation: false,
           noSyntaxValidation: false,
         });
         tsDefaults.setEagerModelSync(true);
 
-        // Register offline Dreamland types immediately + try loading full upstream .d.ts from local SW cache
         tsDefaults.addExtraLib(DREAMLAND_AMBIENT_DTS, "file:///node_modules/@types/dreamland-ambient/index.d.ts");
         try {
           const dtsRes = await fetch(JSDELIVR_PROXY + "npm/dreamland@latest/dist/core.d.ts");
@@ -363,18 +371,43 @@ export {};
       }, reject);
     });
 
-    // Fetch & bundle packages strictly via local SW __cdn__/esm/ proxy (100% offline-first)
+    // Helper: Convert any real upstream https:// URL to its local SW proxy URL
+    function toProxyUrl(upstreamUrl) {
+      if (upstreamUrl.startsWith("https://esm.sh/")) {
+        return ESM_PROXY + upstreamUrl.slice("https://esm.sh/".length);
+      }
+      if (upstreamUrl.startsWith("https://cdn.jsdelivr.net/")) {
+        return JSDELIVR_PROXY + upstreamUrl.slice("https://cdn.jsdelivr.net/".length);
+      }
+      return ANY_PROXY + encodeURIComponent(upstreamUrl);
+    }
+
+    // Helper: Recover the real upstream https:// URL from a local proxy URL
+    function fromProxyUrl(proxyUrl) {
+      if (proxyUrl.startsWith(ESM_PROXY)) {
+        return "https://esm.sh/" + proxyUrl.slice(ESM_PROXY.length);
+      }
+      if (proxyUrl.startsWith(JSDELIVR_PROXY)) {
+        return "https://cdn.jsdelivr.net/" + proxyUrl.slice(JSDELIVR_PROXY.length);
+      }
+      if (proxyUrl.startsWith(ANY_PROXY)) {
+        return decodeURIComponent(proxyUrl.slice(ANY_PROXY.length));
+      }
+      return proxyUrl;
+    }
+
     const pkgMemCache = new Map();
-    async function fetchPackageSource(url) {
-      if (pkgMemCache.has(url)) return pkgMemCache.get(url);
-      const res = await fetch(url);
-      if (!res.ok) throw new Error(`HTTP ${res.status} for ${url}`);
+    async function fetchPackageSource(upstreamUrl) {
+      if (pkgMemCache.has(upstreamUrl)) return pkgMemCache.get(upstreamUrl);
+      const proxyUrl = toProxyUrl(upstreamUrl);
+      const res = await fetch(proxyUrl);
+      if (!res.ok) throw new Error(`HTTP ${res.status} for ${upstreamUrl}`);
       const ct = (res.headers.get("content-type") || "").toLowerCase();
       const text = await res.text();
       if (ct.includes("text/html") || text.trimStart().startsWith("<!")) {
-        throw new Error(`Received HTML instead of JS for ${url}`);
+        throw new Error(`Received HTML instead of JS for ${upstreamUrl}`);
       }
-      pkgMemCache.set(url, text);
+      pkgMemCache.set(upstreamUrl, text);
       return text;
     }
 
@@ -392,7 +425,7 @@ export {};
     }
 
     function findFile(base) {
-      for (const ext of ["", ".tsx", ".ts", ".jsx", ".js"]) {
+      for (const ext of ["", ".tsx", ".ts", ".jsx", ".js", ".json"]) {
         if (files[base + ext] !== undefined) return base + ext;
       }
       return null;
@@ -406,31 +439,44 @@ export {};
       const vfsPlugin = {
         name: "n3xn-vfs",
         setup(build) {
+          // 1. Any external https:// or http:// URL (including inside esm.sh sub-imports)
           build.onResolve({ filter: /^https?:\/\// }, (args) => ({
             path: args.path,
             namespace: "http-pkg",
           }));
-          build.onResolve({ filter: /^\//, namespace: "http-pkg" }, (args) => ({
-            path: new URL(args.path, args.importer).href,
-            namespace: "http-pkg",
-          }));
-          build.onResolve({ filter: /^\./, namespace: "http-pkg" }, (args) => ({
-            path: new URL(args.path, args.importer).href,
-            namespace: "http-pkg",
-          }));
-          // Route all bare npm imports strictly through local SW __cdn__/esm/ proxy
+
+          // 2. Root-relative ("/dreamland@0.1.3/...") or relative ("./chunk.mjs") imports INSIDE external packages
+          build.onResolve({ filter: /^(\/|\.)/, namespace: "http-pkg" }, (args) => {
+            const upstreamImporter = fromProxyUrl(args.importer);
+            const resolvedUpstream = new URL(args.path, upstreamImporter).href;
+            return {
+              path: resolvedUpstream,
+              namespace: "http-pkg",
+            };
+          });
+
+          // 3. Bare npm packages & Dreamland plugins ("dreamland", "dreamland/core", "dreamland/router", "three", etc.)
           build.onResolve({ filter: /^[^./]/ }, (args) => ({
-            path: ESM_PROXY + args.path,
+            path: "https://esm.sh/" + args.path,
             namespace: "http-pkg",
           }));
+
+          // Load external packages via SW proxy & bundle inline
           build.onLoad({ filter: /.*/, namespace: "http-pkg" }, async (args) => {
             try {
               const text = await fetchPackageSource(args.path);
-              return { contents: text, loader: "js" };
+              const loader = args.path.endsWith(".css") ? "css" : args.path.endsWith(".json") ? "json" : "js";
+              if (loader === "css") {
+                cssChunks.push(text);
+                return { contents: "", loader: "js" };
+              }
+              return { contents: text, loader };
             } catch (e) {
               return { errors: [{ text: String(e.message || e) }] };
             }
           });
+
+          // 4. Local VFS files
           build.onResolve({ filter: /^(\.|\/)/ }, (args) => {
             const importer = String(args.importer || "/src/main.tsx").replace(/^vfs:/, "");
             const base = resolvePath(importer, args.path);
@@ -438,9 +484,11 @@ export {};
             if (found) return { path: found, namespace: "vfs" };
             return { errors: [{ text: "Not found: " + args.path + " (resolved " + base + ")" }] };
           });
+
           build.onLoad({ filter: /.*/, namespace: "vfs" }, (args) => {
             const src = files[args.path] ?? "";
             if (args.path.endsWith(".css")) { cssChunks.push(src); return { contents: "", loader: "js" }; }
+            if (args.path.endsWith(".json")) return { contents: src, loader: "json" };
             const loader = args.path.endsWith(".tsx") ? "tsx" : args.path.endsWith(".ts") ? "ts" : "jsx";
             return { contents: src, loader };
           });
@@ -463,7 +511,6 @@ export {};
           jsx: "transform", jsxFactory: "h", jsxFragment: "Fragment", plugins: [vfsPlugin],
         });
         const js = out.outputFiles[0].text;
-        // Fixes sandboxed srcdoc localStorage SecurityError + forwards console logs
         const runtimeShim = `<script>(()=>{try{localStorage.getItem("_")}catch{const m=new Map(),s={getItem:k=>m.has(k)?m.get(k):null,setItem:(k,v)=>m.set(k,String(v)),removeItem:k=>m.delete(k),clear:()=>m.clear()};Object.defineProperty(window,"localStorage",{value:s});Object.defineProperty(window,"sessionStorage",{value:s})}window.addEventListener("error",e=>parent.postMessage({type:"err",msg:e.message},"*"));["log","warn","error"].forEach(fn=>{const o=console[fn];console[fn]=(...a)=>{o(...a);parent.postMessage({type:fn==="error"?"err":"log",msg:a.join(" ")},"*")}})})();<\/script>`;
         lastBuiltHtml = "<!doctype html><html><head><meta charset=UTF-8><style>*{box-sizing:border-box;margin:0;padding:0}body{background:#090d16;color:#f8fafc;font-family:system-ui}" +
           cssChunks.join("\n") + "</style>" + runtimeShim + "</head><body><div id=app></div><script type=module>" + js + "</" + "script></body></html>";

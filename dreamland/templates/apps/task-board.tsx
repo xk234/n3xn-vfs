@@ -3,13 +3,25 @@ import { css, type Component } from "dreamland/core";
 type Task = { id: number; text: string; done: boolean };
 
 export const App: Component<{}, {}, { draft: string; count: number }> = function (cx) {
-  const saved = localStorage.getItem("dl_tasks_v1");
-  let items: Task[] = saved
-    ? JSON.parse(saved)
-    : [
-        { id: 1, text: "Build a Dreamland game offline", done: true },
-        { id: 2, text: "Export standalone .HTML bundle", done: false },
-      ];
+  const defaults: Task[] = [
+    { id: 1, text: "Build a Dreamland game offline", done: true },
+    { id: 2, text: "Export standalone .HTML bundle", done: false },
+  ];
+  let items: Task[] = defaults;
+  try {
+    const saved = localStorage.getItem("dl_tasks_v1");
+    if (saved) {
+      const parsed: unknown = JSON.parse(saved);
+      if (Array.isArray(parsed)) {
+        items = parsed.filter((item): item is Task =>
+          item && typeof item.id === "number" &&
+          typeof item.text === "string" && typeof item.done === "boolean"
+        );
+      }
+    }
+  } catch (error) {
+    console.warn("Could not restore saved tasks; using defaults.", error);
+  }
   this.draft = "";
   this.count = items.length;
 
@@ -17,7 +29,11 @@ export const App: Component<{}, {}, { draft: string; count: number }> = function
 
   const renderList = () => {
     this.count = items.length;
-    localStorage.setItem("dl_tasks_v1", JSON.stringify(items));
+    try {
+      localStorage.setItem("dl_tasks_v1", JSON.stringify(items));
+    } catch (error) {
+      console.warn("Could not persist tasks; changes remain available in this preview.", error);
+    }
     if (!listEl) return;
     listEl.innerHTML = "";
     for (const t of items) {

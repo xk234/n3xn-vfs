@@ -110,34 +110,47 @@ export async function bundleProject({ files, proxies, onWarn }) {
         if (args.path.endsWith(".json")) return { contents: raw, loader: "json" };
         const loader = args.path.endsWith(".tsx") ? "tsx" : args.path.endsWith(".ts") ? "ts" : "jsx";
         const transformed = transformDreamlandMacros(raw);
+        // Subclass Dreamland's Pointer with self-contained listener array so `e.listen()` always works
         const prefix =
           loader === "tsx" || loader === "jsx"
-            ? `import { h as __dl_h, Fragment as __dl_Frag, Pointer as __dl_Pointer, createState as __dl_createState, stateListen as __dl_stateListen, stateProxy as __dl_stateProxy } from "dreamland/core";
-const __dl_initSlot = (proxyObj, prop) => {
-  const internal = proxyObj && proxyObj[__dl_stateProxy];
-  if (internal) {
-    if (!internal.listeners) internal.listeners = {};
-    if (!Array.isArray(internal.listeners[prop])) internal.listeners[prop] = [];
+            ? `import { h as __dl_h, Fragment as __dl_Frag, Pointer as __dl_Pointer, stateListen as __dl_stateListen, stateProxy as __dl_stateProxy } from "dreamland/core";
+class __dl_ReactivePointer extends __dl_Pointer {
+  constructor(getFn, setFn) {
+    super(getFn, setFn);
+    this._subs = [];
+    this._val = getFn();
   }
-  return internal;
-};
+  get value() {
+    return this._val;
+  }
+  set value(v) {
+    this._val = v;
+    for (const fn of this._subs) fn(v);
+  }
+  listen(fn) {
+    this._subs.push(fn);
+  }
+  map(mapFn) {
+    const child = new __dl_ReactivePointer(() => mapFn(this._val), () => {});
+    this.listen((v) => { child.value = mapFn(v); });
+    return child;
+  }
+}
 const __dl_makeBoxPtr = (initialVal, subscribeFn) => {
-  const box = __dl_createState({ val: initialVal });
-  __dl_initSlot(box, "val");
+  let cur = initialVal;
+  const ptr = new __dl_ReactivePointer(() => cur, (v) => { cur = v; });
   if (typeof subscribeFn === "function") {
-    subscribeFn((nextVal) => { box.val = nextVal; });
+    subscribeFn((nextVal) => {
+      cur = nextVal;
+      ptr.value = nextVal;
+    });
   }
-  const ptr = new __dl_Pointer(box, "val");
-  ptr.map = (mapFn) => __dl_makeBoxPtr(mapFn(box.val), (emit) => {
-    __dl_stateListen(box, "val", (v) => emit(mapFn(v)));
-  });
   return ptr;
 };
 const __dl_ptr = (obj, prop) => {
   if (!obj) return undefined;
   if (obj instanceof __dl_Pointer) return obj;
   if (obj[prop] instanceof __dl_Pointer) return obj[prop];
-  __dl_initSlot(obj, prop);
   return __dl_makeBoxPtr(obj[prop], (emit) => {
     try {
       __dl_stateListen(obj, prop, (v) => emit(v));
@@ -148,7 +161,6 @@ const __dl_tpl = (fn, deps) => {
   return __dl_makeBoxPtr(fn(), (emit) => {
     for (const [depObj, depProp] of deps) {
       if (depObj) {
-        __dl_initSlot(depObj, depProp);
         try {
           __dl_stateListen(depObj, depProp, () => emit(fn()));
         } catch (_) {}

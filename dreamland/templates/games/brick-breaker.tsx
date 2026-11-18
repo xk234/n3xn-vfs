@@ -1,6 +1,6 @@
 import { css, type Component } from "dreamland/core";
 
-export const App: Component<{}, { score: number; lives: number; msg: string }> = function () {
+export const App: Component<{}, {}, { score: number; lives: number; msg: string }> = function () {
   this.score = 0;
   this.lives = 3;
   this.msg = "Move mouse or touch to steer paddle";

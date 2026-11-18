@@ -17,9 +17,6 @@ export async function initCompiler(jsdelivrProxy) {
   });
 }
 
-// Official Dreamland 0.1.3 AST transform:
-// - `use(obj.prop)` -> `__dl_use(obj, "prop")`
-// - `use\`...\`` -> `__dl_tpl(() => \`...\`, [depObj1, depObj2])`
 function dreamlandBabelPlugin({ types: t }) {
   function splitMember(node) {
     if (!t.isMemberExpression(node)) return null;
@@ -44,7 +41,6 @@ function dreamlandBabelPlugin({ types: t }) {
             t.callExpression(t.identifier("__dl_use"), [parts.obj, parts.prop])
           );
         } else if (t.isIdentifier(arg)) {
-          // Support `bind:this={use(localVar)}`
           const setter = t.arrowFunctionExpression(
             [t.identifier("__v")],
             t.assignmentExpression("=", arg, t.identifier("__v"))
@@ -83,54 +79,52 @@ function compileDreamlandTsx(code, filename) {
     plugins: [dreamlandBabelPlugin],
   });
 
-  // Uses Dreamland 0.1.3's native Pointer, createState, stateListen, stateProxy
-  const runtimeHeader = `import {
-  h,
-  Fragment,
-  Pointer as __dl_Pointer,
-  createState as __dl_createState,
-  stateListen as __dl_stateListen,
-  stateProxy as __dl_stateProxy
-} from "dreamland/core";
+  const runtimeHeader = [
+    'import {',
+    '  h,',
+    '  Fragment,',
+    '  Pointer as __dl_Pointer,',
+    '  createState as __dl_createState,',
+    '  stateListen as __dl_stateListen,',
+    '  stateProxy as __dl_stateProxy',
+    '} from "dreamland/core";',
+    '',
+    'const __dl_use = (obj, prop) => {',
+    '  if (!obj) return undefined;',
+    '  if (obj instanceof __dl_Pointer) return obj;',
+    '  const rawVal = obj[prop];',
+    '  if (rawVal instanceof __dl_Pointer) return rawVal;',
+    '  if (typeof obj === "object" && __dl_stateProxy in obj) {',
+    '    try {',
+    '      return new __dl_Pointer(obj, prop);',
+    '    } catch (_) {}',
+    '  }',
+    '  const box = __dl_createState({ v: rawVal });',
+    '  return new __dl_Pointer(box, "v");',
+    '};',
+    '',
+    'const __dl_ref = (getFn, setFn) => {',
+    '  const box = __dl_createState({ v: getFn() });',
+    '  __dl_stateListen(box, () => {',
+    '    setFn(box.v);',
+    '  });',
+    '  return new __dl_Pointer(box, "v");',
+    '};',
+    '',
+    'const __dl_tpl = (fn, deps) => {',
+    '  const box = __dl_createState({ v: fn() });',
+    '  const update = () => {',
+    '    box.v = fn();',
+    '  };',
+    '  for (const dep of deps) {',
+    '    if (dep && typeof dep === "object" && __dl_stateProxy in dep) {',
+    '      __dl_stateListen(dep, update);',
+    '    }',
+    '  }',
+    '  return new __dl_Pointer(box, "v");',
+    '};',
+  ].join("\n");
 
-const __dl_use = (obj, prop) => {
-  if (!obj) return undefined;
-  if (obj instanceof __dl_Pointer) return obj;
-  // If parent passed a Pointer prop (e.g. <HUD score={use(this.score)} />), return it directly
-  const rawVal = obj[prop];
-  if (rawVal instanceof __dl_Pointer) return rawVal;
-  // Native Dreamland state proxy (`this` inside a Component) -> native `new Pointer(this, prop)`!
-  if (typeof obj === "object" && __dl_stateProxy in obj) {
-    try {
-      return new __dl_Pointer(obj, prop);
-    } catch (_) {}
-  }
-  // Fallback box for plain objects or static props
-  const box = __dl_createState({ v: rawVal });
-  return new __dl_Pointer(box, "v");
-};
-
-const __dl_ref = (getFn, setFn) => {
-  const box = __dl_createState({ v: getFn() });
-  __dl_stateListen(box, () => {
-    setFn(box.v);
-  });
-  return new __dl_Pointer(box, "v");
-};
-
-const __dl_tpl = (fn, deps) => {
-  const box = __dl_createState({ v: fn() });
-  const update = () => {
-    box.v = fn();
-  };
-  for (const dep of deps) {
-    if (dep && typeof dep === "object" && __dl_stateProxy in dep) {
-      __dl_stateListen(dep, update);
-    }
-  }
-  return new __dl_Pointer(box, "v");
-};
-`;
   return runtimeHeader + "\n" + res.code;
 }
 

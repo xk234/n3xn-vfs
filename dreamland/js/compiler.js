@@ -113,11 +113,20 @@ export async function bundleProject({ files, proxies, onWarn }) {
         const prefix =
           loader === "tsx" || loader === "jsx"
             ? `import { h as __dl_h, Fragment as __dl_Frag, Pointer as __dl_Pointer, createState as __dl_createState, stateListen as __dl_stateListen, stateProxy as __dl_stateProxy } from "dreamland/core";
-const __dl_isStateProxy = (obj) => Boolean(obj && typeof obj === "object" && obj[__dl_stateProxy] && typeof obj[__dl_stateProxy].listen === "function");
+const __dl_ensureListenerSlot = (proxyObj, prop) => {
+  const internal = proxyObj && proxyObj[__dl_stateProxy];
+  if (internal) {
+    if (!internal.listeners) internal.listeners = {};
+    if (!Array.isArray(internal.listeners[prop])) internal.listeners[prop] = [];
+  }
+  return internal;
+};
 const __dl_attachMap = (ptr, stateProxyObj, prop) => {
   if (ptr && typeof ptr.map !== "function") {
     ptr.map = (mapFn) => {
       const box = __dl_createState({ val: mapFn(stateProxyObj[prop]) });
+      __dl_ensureListenerSlot(box, "val");
+      __dl_ensureListenerSlot(stateProxyObj, prop);
       try {
         __dl_stateListen(stateProxyObj, prop, (v) => { box.val = mapFn(v); });
       } catch (_) {}
@@ -130,22 +139,25 @@ const __dl_ptr = (obj, prop) => {
   if (!obj) return undefined;
   if (obj instanceof __dl_Pointer) return obj;
   if (obj[prop] instanceof __dl_Pointer) return obj[prop];
-  if (__dl_isStateProxy(obj)) {
+  const internal = __dl_ensureListenerSlot(obj, prop);
+  if (internal && internal.pointers && internal.pointers[prop] instanceof __dl_Pointer) {
+    return __dl_attachMap(internal.pointers[prop], obj, prop);
+  }
+  if (internal && typeof internal.listen === "function") {
     const ptr = new __dl_Pointer(obj, prop);
     return __dl_attachMap(ptr, obj, prop);
   }
-  // Component props (cx): bridge via createState box
   const box = __dl_createState({ val: obj[prop] });
-  if (__dl_isStateProxy(obj)) {
-    __dl_stateListen(obj, prop, (v) => { box.val = v; });
-  }
+  __dl_ensureListenerSlot(box, "val");
   const ptr = new __dl_Pointer(box, "val");
   return __dl_attachMap(ptr, box, "val");
 };
 const __dl_tpl = (fn, deps) => {
   const box = __dl_createState({ val: fn() });
+  __dl_ensureListenerSlot(box, "val");
   for (const [depObj, depProp] of deps) {
-    if (__dl_isStateProxy(depObj)) {
+    const internal = __dl_ensureListenerSlot(depObj, depProp);
+    if (internal && typeof internal.listen === "function") {
       try {
         __dl_stateListen(depObj, depProp, () => { box.val = fn(); });
       } catch (_) {}

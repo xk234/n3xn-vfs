@@ -12,7 +12,17 @@ const statusBadge = document.getElementById("status-badge");
 const consoleOut = document.getElementById("console-out");
 const previewFrame = document.getElementById("preview");
 const fileListEl = document.getElementById("file-list");
-const templateSelect = document.getElementById("template-select");
+
+let templateSelect = document.getElementById("template-select");
+if (!templateSelect) {
+  const actionsBar = document.querySelector(".actions");
+  if (actionsBar) {
+    templateSelect = document.createElement("select");
+    templateSelect.id = "template-select";
+    templateSelect.title = "Load Demo, Game, or App Template";
+    actionsBar.prepend(templateSelect);
+  }
+}
 
 function log(msg, level = "log", stack = "") {
   const entry = document.createElement("div");
@@ -47,8 +57,8 @@ if ("serviceWorker" in navigator) {
   await navigator.serviceWorker.ready;
   if (!navigator.serviceWorker.controller) {
     statusBadge.textContent = "Activating SW…";
-    if (!sessionStorage.getItem("dl_sw_booted_v20")) {
-      sessionStorage.setItem("dl_sw_booted_v20", "1");
+    if (!sessionStorage.getItem("dl_sw_booted_v21")) {
+      sessionStorage.setItem("dl_sw_booted_v21", "1");
       location.reload();
       await new Promise(() => {});
     }
@@ -149,17 +159,19 @@ async function buildAndRun() {
   }
 }
 
-for (const tpl of templates) {
-  const opt = document.createElement("option");
-  opt.value = tpl.id;
-  opt.textContent = `[${tpl.category}] ${tpl.name}`;
-  opt.title = tpl.description || "";
-  templateSelect.appendChild(opt);
+if (templateSelect) {
+  for (const tpl of templates) {
+    const opt = document.createElement("option");
+    opt.value = tpl.id;
+    opt.textContent = `[${tpl.category}] ${tpl.name}`;
+    opt.title = tpl.description || "";
+    templateSelect.appendChild(opt);
+  }
+  templateSelect.onchange = () => {
+    const tpl = templates.find((t) => t.id === templateSelect.value);
+    applyTemplate(tpl);
+  };
 }
-templateSelect.onchange = () => {
-  const tpl = templates.find((t) => t.id === templateSelect.value);
-  applyTemplate(tpl);
-};
 
 await initCompiler(JSDELIVR_PROXY);
 editor = await initMonaco({
@@ -203,7 +215,7 @@ document.getElementById("new-file-btn").onclick = () => {
   switchFile(clean);
 };
 document.getElementById("reset-btn").onclick = () => {
-  const currentTpl = templates.find((t) => t.id === templateSelect.value) || templates[0];
+  const currentTpl = (templateSelect && templates.find((t) => t.id === templateSelect.value)) || templates[0];
   applyTemplate(currentTpl);
 };
 document.getElementById("export-btn").onclick = () => {

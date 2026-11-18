@@ -11,18 +11,16 @@ export async function initCompiler(jsdelivrProxy) {
   });
 }
 
-// Dreamland 0.1.x compiles `use(obj.prop)` macros into reactive pointer tuples `[obj, "prop"]`
-// and `use` template literals into reactive computed strings.
+// Transforms Dreamland's `use(...)` macro into real Dreamland Pointer / computed bindings
 function transformDreamlandMacros(src) {
-  // 1. Transform `use(target.prop)` -> `[target, "prop"]` (Dreamland's native Pointer tuple)
+  // 1. Transform `use(target.prop)` -> `__dl_ptr(target, "prop")`
   let out = src.replace(
     /\buse\(\s*([a-zA-Z_$][\w$.]*?)\.([a-zA-Z_$][\w$]*)\s*\)/g,
-    (_match, target, prop) => `[${target}, "${prop}"]`
+    (_match, target, prop) => `__dl_ptr(${target}, "${prop}")`
   );
-  // 2. Transform `use\`...\`` tagged templates into reactive getters
+  // 2. Transform `use\`...\`` template strings -> `__dl_tpl(() => \`...\`)`
   out = out.replace(/\buse`([^`]*)`/g, (_match, tpl) => {
-    const fnBody = tpl.replace(/\$\{([^}]+)\}/g, (_m, expr) => "${" + expr + "}");
-    return `(() => \`${fnBody}\`)`;
+    return `__dl_tpl(() => \`${tpl}\`)`;
   });
   return out;
 }
@@ -108,10 +106,23 @@ export async function bundleProject({ files, proxies }) {
         if (args.path.endsWith(".json")) return { contents: raw, loader: "json" };
         const loader = args.path.endsWith(".tsx") ? "tsx" : args.path.endsWith(".ts") ? "ts" : "jsx";
         const transformed = transformDreamlandMacros(raw);
-        // Only import `h` and `Fragment` which are guaranteed exports of `dreamland/core`
+        // Inject Dreamland runtime helpers + real Pointer constructor
         const prefix =
           loader === "tsx" || loader === "jsx"
-            ? `import { h as __dl_h, Fragment as __dl_Frag } from "dreamland/core";\n`
+            ? `import * as __dl_mod from "dreamland/core";
+const { h: __dl_h, Fragment: __dl_Frag } = __dl_mod;
+const __dl_ptr = (obj, prop) => {
+  if (__dl_mod.Pointer) return new __dl_mod.Pointer(obj, prop);
+  if (__dl_mod.use) return __dl_mod.use(obj, prop);
+  return obj[prop];
+};
+const __dl_tpl = (fn) => {
+  if (__dl_mod.Pointer) {
+    const s = __dl_mod.createState ? __dl_mod.createState({ val: fn() }) : { val: fn() };
+    return new __dl_mod.Pointer(s, "val");
+  }
+  return fn();
+};\n`
             : "";
         return { contents: prefix + transformed, loader };
       });
@@ -120,11 +131,12 @@ export async function bundleProject({ files, proxies }) {
 
   const virtualEntry = `
     import * as Entry from "/src/main.tsx";
-    import { h } from "dreamland/core";
+    import * as DL from "dreamland/core";
+    console.log("[Dreamland runtime exports]", Object.keys(DL));
     const root = document.getElementById("app");
     if (root && root.childNodes.length === 0) {
       const C = Entry.default || Entry.App;
-      if (typeof C === "function") root.appendChild(h(C, {}));
+      if (typeof C === "function") root.appendChild(DL.h(C, {}));
     }
   `;
 

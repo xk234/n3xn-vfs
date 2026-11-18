@@ -1,9 +1,4 @@
-export const TASK_BOARD_TEMPLATE = {
-  id: "app-tasks",
-  category: "Apps",
-  name: "📋 Offline Task Tracker",
-  files: {
-    "/src/main.tsx": `import { css, type Component } from "dreamland/core";
+import { css, type Component } from "dreamland/core";
 
 type Task = { id: number; text: string; done: boolean };
 
@@ -73,7 +68,7 @@ export const App: Component<{}, { draft: string; count: number; items: Task[] }>
   );
 };
 
-App.style = css\`
+App.style = css`
   :scope { max-width: 460px; margin: 2rem auto; background: #0f172a; border: 1px solid #1e293b; border-radius: 14px; padding: 1.25rem; }
   header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; }
   header span { color: #38bdf8; font-size: 0.85rem; font-weight: 700; }
@@ -85,9 +80,6 @@ App.style = css\`
   li.done span { text-decoration: line-through; color: #64748b; }
   label { display: flex; align-items: center; gap: 0.6rem; cursor: pointer; }
   .del { background: transparent; border: none; color: #f87171; font-size: 1.1rem; cursor: pointer; }
-\`;
+`;
 
 export default App;
-`,
-  },
-};

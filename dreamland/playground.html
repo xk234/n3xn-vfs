@@ -68,15 +68,12 @@
   </div>
 
   <script type="module">
-    const BASE_URL = new URL("./", window.location.href).href;
     const JSDELIVR_LIVE = "https://cdn.jsdelivr.net/";
-    const JSDELIVR_PROXY = BASE_URL + "__cdn__/jsdelivr/";
-    const MONACO_LIVE = JSDELIVR_LIVE + "npm/monaco-editor@0.52.0/min/vs";
-    const MONACO_PROXY = BASE_URL + "__monaco__/npm/monaco-editor@0.52.0/min/vs";
-    const STORAGE_KEY = "n3xn_dreamland_vfs_v3";
+    const MONACO_BASE = JSDELIVR_LIVE + "npm/monaco-editor@0.52.0/min/vs";
+    const STORAGE_KEY = "n3xn_dreamland_vfs_v4";
 
     if ("serviceWorker" in navigator) {
-      navigator.serviceWorker.register("./sw.js", { scope: "./" }).catch(() => {});
+      navigator.serviceWorker.register("./sw.js", { scope: "./" }).then((reg) => reg.update()).catch(() => {});
     }
 
     const statusBadge = document.getElementById("status-badge");
@@ -92,36 +89,21 @@
       consoleOut.scrollTop = consoleOut.scrollHeight;
     }
 
-    // 1. Load esbuild-wasm
-    let esbuild;
-    try {
-      if (!navigator.serviceWorker?.controller) throw new Error("sw pending");
-      esbuild = await import(JSDELIVR_PROXY + "npm/esbuild-wasm@0.24.2/esm/browser.min.js");
-      await esbuild.initialize({ wasmURL: JSDELIVR_PROXY + "npm/esbuild-wasm@0.24.2/esbuild.wasm", worker: false });
-    } catch {
-      esbuild = await import(JSDELIVR_LIVE + "npm/esbuild-wasm@0.24.2/esm/browser.min.js");
-      await esbuild.initialize({ wasmURL: JSDELIVR_LIVE + "npm/esbuild-wasm@0.24.2/esbuild.wasm", worker: false });
-    }
+    // 1. Load esbuild-wasm (intercepted & cached offline by sw.js)
+    const esbuild = await import(JSDELIVR_LIVE + "npm/esbuild-wasm@0.24.2/esm/browser.min.js");
+    await esbuild.initialize({
+      wasmURL: JSDELIVR_LIVE + "npm/esbuild-wasm@0.24.2/esbuild.wasm",
+      worker: false,
+    });
 
-    // 2. Load Monaco safely & fix "define is not defined" in workers
-    function loadScript(src) {
-      return new Promise((res, rej) => {
-        const s = document.createElement("script");
-        s.src = src;
-        s.onload = res;
-        s.onerror = rej;
-        document.head.appendChild(s);
-      });
-    }
-
-    let monacoBase = MONACO_PROXY;
-    try {
-      if (!navigator.serviceWorker?.controller) throw new Error("sw pending");
-      await loadScript(MONACO_PROXY + "/loader.js");
-    } catch {
-      monacoBase = MONACO_LIVE;
-      await loadScript(MONACO_LIVE + "/loader.js");
-    }
+    // 2. Load Monaco loader.js (intercepted & cached offline by sw.js, never hits CF SPA HTML)
+    await new Promise((res, rej) => {
+      const s = document.createElement("script");
+      s.src = MONACO_BASE + "/loader.js";
+      s.onload = res;
+      s.onerror = rej;
+      document.head.appendChild(s);
+    });
 
     const DEFAULT_FILES = {
       "/src/main.tsx": `import { css, type Component } from "dreamland/core";
@@ -162,7 +144,6 @@ HUD.style = css\`:scope{display:flex;justify-content:space-between;align-items:c
 `,
     };
 
-    // Only load DEFAULT_FILES if storage is completely empty (so deleted files stay deleted!)
     const savedRaw = localStorage.getItem(STORAGE_KEY);
     let files = savedRaw ? JSON.parse(savedRaw) : structuredClone(DEFAULT_FILES);
     localStorage.setItem(STORAGE_KEY, JSON.stringify(files));
@@ -212,17 +193,17 @@ HUD.style = css\`:scope{display:flex;justify-content:space-between;align-items:c
     }
 
     await new Promise((resolve, reject) => {
-      // Point worker directly to workerMain.js via Blob so AMD `define()` is initialized cleanly
+      // Blob worker loading directly from jsDelivr (cached by sw.js, never hits CF SPA HTML)
       window.MonacoEnvironment = {
         getWorker: function () {
           const workerCode = `
-            self.MonacoEnvironment = { baseUrl: "${monacoBase}/" };
-            importScripts("${monacoBase}/base/worker/workerMain.js");
+            self.MonacoEnvironment = { baseUrl: "${MONACO_BASE}/" };
+            importScripts("${MONACO_BASE}/base/worker/workerMain.js");
           `;
           return new Worker(URL.createObjectURL(new Blob([workerCode], { type: "application/javascript" })));
         },
       };
-      window.require.config({ paths: { vs: monacoBase } });
+      window.require.config({ paths: { vs: MONACO_BASE } });
       window.require(["vs/editor/editor.main"], () => {
         monaco.languages.typescript.typescriptDefaults.setCompilerOptions({
           target: monaco.languages.typescript.ScriptTarget.ES2022,
@@ -253,7 +234,7 @@ HUD.style = css\`:scope{display:flex;justify-content:space-between;align-items:c
       }, reject);
     });
 
-    // Cache fetched npm/esm modules in memory + CacheStorage so esbuild bundles them inline (NO MIME errors in srcdoc!)
+    // Fetch & bundle esm.sh packages INLINE so the srcdoc iframe makes ZERO external requests!
     const pkgMemCache = new Map();
     async function fetchPackageSource(url) {
       if (pkgMemCache.has(url)) return pkgMemCache.get(url);
@@ -296,7 +277,6 @@ HUD.style = css\`:scope{display:flex;justify-content:space-between;align-items:c
       const vfsPlugin = {
         name: "n3xn-vfs",
         setup(build) {
-          // Resolve HTTP sub-imports inside esm.sh bundles
           build.onResolve({ filter: /^https?:\/\// }, (args) => ({
             path: args.path,
             namespace: "http-pkg",
@@ -309,13 +289,10 @@ HUD.style = css\`:scope{display:flex;justify-content:space-between;align-items:c
             path: new URL(args.path, args.importer).href,
             namespace: "http-pkg",
           }));
-
-          // Resolve bare npm imports ("dreamland/core", etc.) via esm.sh and BUNDLE them inline!
           build.onResolve({ filter: /^[^./]/ }, (args) => ({
             path: "https://esm.sh/" + args.path,
             namespace: "http-pkg",
           }));
-
           build.onLoad({ filter: /.*/, namespace: "http-pkg" }, async (args) => {
             try {
               const { text } = await fetchPackageSource(args.path);
@@ -324,8 +301,6 @@ HUD.style = css\`:scope{display:flex;justify-content:space-between;align-items:c
               return { errors: [{ text: String(e.message || e) }] };
             }
           });
-
-          // Local VFS files
           build.onResolve({ filter: /^(\.|\/)/ }, (args) => {
             const importer = String(args.importer || "/src/main.tsx").replace(/^vfs:/, "");
             const base = resolvePath(importer, args.path);
@@ -333,7 +308,6 @@ HUD.style = css\`:scope{display:flex;justify-content:space-between;align-items:c
             if (found) return { path: found, namespace: "vfs" };
             return { errors: [{ text: "Not found: " + args.path + " (resolved " + base + ")" }] };
           });
-
           build.onLoad({ filter: /.*/, namespace: "vfs" }, (args) => {
             const src = files[args.path] ?? "";
             if (args.path.endsWith(".css")) { cssChunks.push(src); return { contents: "", loader: "js" }; }

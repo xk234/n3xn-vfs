@@ -11,7 +11,6 @@ export async function initCompiler(jsdelivrProxy) {
   });
 }
 
-// Compiles Dreamland's `use(...)` macro into Dreamland 0.1.3 Pointer / stateListen reactivity
 function transformDreamlandMacros(src) {
   // 1. Transform `use(target.prop)` -> `__dl_ptr(target, "prop")`
   let out = src.replace(
@@ -111,22 +110,37 @@ export async function bundleProject({ files, proxies, onWarn }) {
         if (args.path.endsWith(".json")) return { contents: raw, loader: "json" };
         const loader = args.path.endsWith(".tsx") ? "tsx" : args.path.endsWith(".ts") ? "ts" : "jsx";
         const transformed = transformDreamlandMacros(raw);
-        // Uses exact Dreamland 0.1.3 exports: Pointer, createState, stateListen
+        // Safely wraps state objects & Pointers for Dreamland 0.1.3 (including .map() reactivity)
         const prefix =
           loader === "tsx" || loader === "jsx"
-            ? `import { h as __dl_h, Fragment as __dl_Frag, Pointer as __dl_Pointer, createState as __dl_createState, stateListen as __dl_stateListen } from "dreamland/core";
+            ? `import { h as __dl_h, Fragment as __dl_Frag, Pointer as __dl_Pointer, createState as __dl_createState, stateListen as __dl_stateListen, stateProxy as __dl_stateProxy } from "dreamland/core";
+const __dl_attachMap = (ptr, target, prop) => {
+  if (ptr && typeof ptr.map !== "function") {
+    ptr.map = (mapFn) => {
+      const box = __dl_createState({ val: mapFn(target[prop]) });
+      try {
+        __dl_stateListen(target, prop, (v) => { box.val = mapFn(v); });
+      } catch (_) {}
+      return new __dl_Pointer(box, "val");
+    };
+  }
+  return ptr;
+};
 const __dl_ptr = (obj, prop) => {
   if (!obj) return undefined;
   if (obj instanceof __dl_Pointer) return obj;
   if (obj[prop] instanceof __dl_Pointer) return obj[prop];
-  return new __dl_Pointer(obj, prop);
+  const stateObj = __dl_stateProxy ? __dl_stateProxy(obj) : obj;
+  const ptr = new __dl_Pointer(stateObj, prop);
+  return __dl_attachMap(ptr, stateObj, prop);
 };
 const __dl_tpl = (fn, deps) => {
   const box = __dl_createState({ val: fn() });
   for (const [depObj, depProp] of deps) {
     if (depObj) {
       try {
-        __dl_stateListen(depObj, depProp, () => { box.val = fn(); });
+        const s = __dl_stateProxy ? __dl_stateProxy(depObj) : depObj;
+        __dl_stateListen(s, depProp, () => { box.val = fn(); });
       } catch (_) {}
     }
   }
@@ -166,7 +180,6 @@ const __dl_tpl = (fn, deps) => {
 
   const js = out.outputFiles[0].text;
 
-  // Full in-app Console & Crash Reporter (captures errors, stack traces, rejections, objects, warnings, logs)
   const runtimeShim = `<script>(()=>{
     try{localStorage.getItem("_")}catch{
       const m=new Map(),s={getItem:k=>m.has(k)?m.get(k):null,setItem:(k,v)=>m.set(k,String(v)),removeItem:k=>m.delete(k),clear:()=>m.clear()};

@@ -17,24 +17,19 @@ export async function initCompiler(jsdelivrProxy) {
   });
 }
 
-// Official Dreamland AST transform: turns `use(a.b.c)` into `use(a, "b", "c")`
-// and `use\`...\`` into reactive template calls handled natively by dreamland/core!
+// Official Dreamland 0.1.3 AST transform:
+// - `use(obj.prop)` -> `__dl_use(obj, "prop")`
+// - `use\`...\`` -> `__dl_tpl(() => \`...\`, [depObj1, depObj2])`
 function dreamlandBabelPlugin({ types: t }) {
-  function memberChainToArgs(node) {
-    const props = [];
-    let cur = node;
-    while (t.isMemberExpression(cur)) {
-      if (cur.computed) {
-        props.unshift(cur.property);
-      } else if (t.isIdentifier(cur.property)) {
-        props.unshift(t.stringLiteral(cur.property.name));
-      } else {
-        return null;
-      }
-      cur = cur.object;
-    }
-    if (props.length === 0) return null;
-    return [cur, ...props];
+  function splitMember(node) {
+    if (!t.isMemberExpression(node)) return null;
+    const propExpr = node.computed
+      ? node.property
+      : t.isIdentifier(node.property)
+      ? t.stringLiteral(node.property.name)
+      : null;
+    if (!propExpr) return null;
+    return { obj: node.object, prop: propExpr };
   }
 
   return {
@@ -43,29 +38,39 @@ function dreamlandBabelPlugin({ types: t }) {
         if (!t.isIdentifier(path.node.callee, { name: "use" })) return;
         if (path.node.arguments.length !== 1) return;
         const arg = path.node.arguments[0];
-        if (t.isMemberExpression(arg)) {
-          const args = memberChainToArgs(arg);
-          if (args) {
-            path.node.arguments = args;
-          }
+        const parts = splitMember(arg);
+        if (parts) {
+          path.replaceWith(
+            t.callExpression(t.identifier("__dl_use"), [parts.obj, parts.prop])
+          );
+        } else if (t.isIdentifier(arg)) {
+          // Support `bind:this={use(localVar)}`
+          const setter = t.arrowFunctionExpression(
+            [t.identifier("__v")],
+            t.assignmentExpression("=", arg, t.identifier("__v"))
+          );
+          const getter = t.arrowFunctionExpression([], arg);
+          path.replaceWith(
+            t.callExpression(t.identifier("__dl_ref"), [getter, setter])
+          );
         }
       },
       TaggedTemplateExpression(path) {
         if (!t.isIdentifier(path.node.tag, { name: "use" })) return;
         const quasi = path.node.quasi;
-        const tplParam = path.scope.generateUidIdentifier("tpl");
-        const newExprs = quasi.expressions.map((expr) => {
+        const deps = [];
+        for (const expr of quasi.expressions) {
           if (t.isMemberExpression(expr)) {
-            const args = memberChainToArgs(expr);
-            if (args) return t.callExpression(tplParam, args);
+            deps.push(expr.object);
           }
-          return expr;
-        });
+        }
         const fn = t.arrowFunctionExpression(
-          [tplParam],
-          t.templateLiteral(quasi.quasis, newExprs)
+          [],
+          t.templateLiteral(quasi.quasis, quasi.expressions)
         );
-        path.replaceWith(t.callExpression(t.identifier("use"), [fn]));
+        path.replaceWith(
+          t.callExpression(t.identifier("__dl_tpl"), [fn, t.arrayExpression(deps)])
+        );
       },
     },
   };
@@ -77,10 +82,56 @@ function compileDreamlandTsx(code, filename) {
     presets: [["typescript", { isTSX: true, allExtensions: true }]],
     plugins: [dreamlandBabelPlugin],
   });
-  return (
-    `import { h, Fragment, use } from "dreamland/core";\n` +
-    res.code
-  );
+
+  // Uses Dreamland 0.1.3's native Pointer, createState, stateListen, stateProxy
+  const runtimeHeader = `import {
+  h,
+  Fragment,
+  Pointer as __dl_Pointer,
+  createState as __dl_createState,
+  stateListen as __dl_stateListen,
+  stateProxy as __dl_stateProxy
+} from "dreamland/core";
+
+const __dl_use = (obj, prop) => {
+  if (!obj) return undefined;
+  if (obj instanceof __dl_Pointer) return obj;
+  // If parent passed a Pointer prop (e.g. <HUD score={use(this.score)} />), return it directly
+  const rawVal = obj[prop];
+  if (rawVal instanceof __dl_Pointer) return rawVal;
+  // Native Dreamland state proxy (`this` inside a Component) -> native `new Pointer(this, prop)`!
+  if (typeof obj === "object" && __dl_stateProxy in obj) {
+    try {
+      return new __dl_Pointer(obj, prop);
+    } catch (_) {}
+  }
+  // Fallback box for plain objects or static props
+  const box = __dl_createState({ v: rawVal });
+  return new __dl_Pointer(box, "v");
+};
+
+const __dl_ref = (getFn, setFn) => {
+  const box = __dl_createState({ v: getFn() });
+  __dl_stateListen(box, () => {
+    setFn(box.v);
+  });
+  return new __dl_Pointer(box, "v");
+};
+
+const __dl_tpl = (fn, deps) => {
+  const box = __dl_createState({ v: fn() });
+  const update = () => {
+    box.v = fn();
+  };
+  for (const dep of deps) {
+    if (dep && typeof dep === "object" && __dl_stateProxy in dep) {
+      __dl_stateListen(dep, update);
+    }
+  }
+  return new __dl_Pointer(box, "v");
+};
+`;
+  return runtimeHeader + "\n" + res.code;
 }
 
 export async function bundleProject({ files, proxies, onWarn }) {

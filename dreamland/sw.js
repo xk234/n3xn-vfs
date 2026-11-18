@@ -1,7 +1,7 @@
-/* n3xn Dreamland SW v7 — Modular Shell + Universal External Proxy + All Dreamland Plugins */
-const SHELL = "n3xn-dreamland-shell-v9";
-const MONACO = "n3xn-dreamland-monaco-v7";
-const CDN = "n3xn-dreamland-cdn-v7";
+/* n3xn Dreamland SW v10 — Non-Redirected Clean Responses + CSS Fix + Universal Proxy */
+const SHELL = "n3xn-dreamland-shell-v10";
+const MONACO = "n3xn-dreamland-monaco-v10";
+const CDN = "n3xn-dreamland-cdn-v10";
 const VER = "monaco-editor@0.52.0";
 
 const BASE_PATH = new URL("./", self.location.href).pathname;
@@ -60,6 +60,19 @@ const EXTERNAL_WARM = [
   ESM + "dreamland/ssr",
 ];
 
+// Always reconstruct a clean Response so `res.redirected` is NEVER true (prevents browser navigate network errors)
+async function cleanResponse(res, fallbackMime) {
+  const buf = await res.arrayBuffer();
+  const ct = res.headers.get("Content-Type") || fallbackMime;
+  return new Response(buf, {
+    status: 200,
+    headers: {
+      "Content-Type": ct,
+      "Cache-Control": "no-cache",
+    },
+  });
+}
+
 self.addEventListener("install", (event) => {
   event.waitUntil(
     (async () => {
@@ -67,11 +80,10 @@ self.addEventListener("install", (event) => {
       await Promise.allSettled(
         SHELL_URLS.map(async (rel) => {
           const fullUrl = new URL(rel, self.location.href).href;
-          const res = await fetch(fullUrl, { redirect: "follow" });
+          const res = await fetch(fullUrl, { redirect: "follow", cache: "no-store" });
           if (res.ok) {
-            const buf = await res.arrayBuffer();
-            const ct = res.headers.get("Content-Type") || mimeFor(rel);
-            await shell.put(fullUrl, new Response(buf, { status: 200, headers: { "Content-Type": ct } }));
+            const clean = await cleanResponse(res, mimeFor(rel));
+            await shell.put(fullUrl, clean);
           }
         })
       );
@@ -269,33 +281,39 @@ self.addEventListener("fetch", (event) => {
           const cache = await caches.open(SHELL);
           const isPlayground =
             url.pathname.endsWith("/playground") || url.pathname.endsWith("/playground.html");
+          const isStaticAsset = /\.(css|js|mjs|json|wasm|png|svg|ico)$/i.test(url.pathname);
+
           const lookupKeys = isPlayground
             ? [
                 new URL("./playground", self.location.href).href,
                 new URL("./playground.html", self.location.href).href,
-                req,
               ]
-            : [req, url.pathname];
+            : [url.href, url.pathname];
+
+          // Network-first when online (always returning clean non-redirected Response), fallback to cache offline
+          try {
+            const net = await fetch(url.href, { redirect: "follow", cache: "no-store" });
+            if (net.ok) {
+              const ct = (net.headers.get("Content-Type") || "").toLowerCase();
+              if (!(isStaticAsset && ct.includes("text/html"))) {
+                const clean = await cleanResponse(net, mimeFor(url.pathname));
+                for (const k of lookupKeys) await cache.put(k, clean.clone());
+                return clean;
+              }
+            }
+          } catch (_) {}
 
           for (const k of lookupKeys) {
             const hit = await cache.match(k);
-            if (hit) {
-              fetch(req, { redirect: "follow" })
-                .then((net) => {
-                  if (net.ok) cache.put(k, net.clone());
-                })
-                .catch(() => {});
-              return hit;
-            }
+            if (hit) return hit;
           }
 
-          try {
-            const net = await fetch(req, { redirect: "follow" });
-            if (net.ok) {
-              cache.put(req, net.clone()).catch(() => {});
-              return net;
-            }
-          } catch (_) {}
+          if (isStaticAsset) {
+            return new Response("/* offline asset miss: " + url.pathname + " */", {
+              status: 404,
+              headers: { "Content-Type": mimeFor(url.pathname) },
+            });
+          }
 
           return (
             (await cache.match(new URL("./playground", self.location.href).href)) ||

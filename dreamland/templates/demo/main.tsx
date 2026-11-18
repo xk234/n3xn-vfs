@@ -1,11 +1,13 @@
 import { css, type Component } from "dreamland/core";
 import { HUD } from "./HUD.tsx";
 
-export const App: Component<{}, { score: number; best: number; timeLeft: number; active: boolean; x: number; y: number }> = function () {
+export const App: Component<{}, { score: number; best: number; timeLeft: number; active: boolean; statusText: string; btnText: string; x: number; y: number }> = function () {
   this.score = 0;
   this.best = Number(localStorage.getItem("dl_reflex_best") || 0);
   this.timeLeft = 15;
   this.active = false;
+  this.statusText = "Click orbs before time runs out!";
+  this.btnText = "Start Game";
   this.x = 50;
   this.y = 50;
 
@@ -27,6 +29,8 @@ export const App: Component<{}, { score: number; best: number; timeLeft: number;
       if (this.timeLeft <= 0) {
         clearInterval(timer);
         this.active = false;
+        this.statusText = `Final Score: ${this.score}`;
+        this.btnText = "Play Again";
         if (this.score > this.best) {
           this.best = this.score;
           localStorage.setItem("dl_reflex_best", String(this.best));
@@ -39,22 +43,24 @@ export const App: Component<{}, { score: number; best: number; timeLeft: number;
     <div class="card">
       <HUD score={use(this.score)} best={use(this.best)} timeLeft={use(this.timeLeft)} />
       <div class="arena">
-        {use(this.active).map((on) =>
-          on ? (
-            <button
-              class="orb"
-              style={use`left: ${this.x}%; top: ${this.y}%;`}
-              on:click={() => { this.score++; move(); }}
-            >
-              +1
-            </button>
-          ) : (
-            <div class="center">
-              <p>{this.score > 0 ? `Final Score: ${this.score}` : "Click orbs before time runs out!"}</p>
-              <button class="btn" on:click={start}>{this.score > 0 ? "Play Again" : "Start Game"}</button>
-            </div>
-          )
-        )}
+        <button
+          class="orb"
+          style={use`left: ${this.x}%; top: ${this.y}%; display: ${this.active ? "block" : "none"};`}
+          on:click={() => {
+            if (!this.active) return;
+            this.score++;
+            move();
+          }}
+        >
+          +1
+        </button>
+        <div
+          class="center"
+          style={use`display: ${this.active ? "none" : "flex"};`}
+        >
+          <p>{use(this.statusText)}</p>
+          <button class="btn" on:click={start}>{use(this.btnText)}</button>
+        </div>
       </div>
     </div>
   );

@@ -1,33 +1,86 @@
 import { resolveVfsPath, findVfsFile } from "./vfs.js";
 
 let esbuild = null;
+let Babel = null;
 const pkgMemCache = new Map();
 
 export async function initCompiler(jsdelivrProxy) {
-  esbuild = await import(jsdelivrProxy + "npm/esbuild-wasm@0.24.2/esm/browser.min.js");
+  const [esbuildMod, babelMod] = await Promise.all([
+    import(jsdelivrProxy + "npm/esbuild-wasm@0.24.2/esm/browser.min.js"),
+    import(jsdelivrProxy + "npm/@babel/standalone@7.26.4/+esm"),
+  ]);
+  esbuild = esbuildMod;
+  Babel = babelMod.default || babelMod;
   await esbuild.initialize({
     wasmURL: jsdelivrProxy + "npm/esbuild-wasm@0.24.2/esbuild.wasm",
     worker: false,
   });
 }
 
-function transformDreamlandMacros(src) {
-  // 1. Transform `use(target.prop)` -> `__dl_ptr(() => target.prop, (v) => { target.prop = v; }, [target])`
-  let out = src.replace(
-    /\buse\(\s*([a-zA-Z_$][\w$.]*?)\.([a-zA-Z_$][\w$]*)\s*\)/g,
-    (_match, target, prop) =>
-      `__dl_ptr(() => ${target}.${prop}, (__v) => { ${target}.${prop} = __v; }, [${target}])`
-  );
-  // 2. Transform `use\`...\`` template literals -> reactive Pointer
-  out = out.replace(/\buse`([^`]*)`/g, (_match, tpl) => {
-    const deps = [];
-    tpl.replace(/\$\{\s*([a-zA-Z_$][\w$.]*?)\.([a-zA-Z_$][\w$]*)\s*\}/g, (_m, obj) => {
-      deps.push(obj);
-      return "";
-    });
-    return `__dl_ptr(() => \`${tpl}\`, () => {}, [${deps.join(", ")}])`;
+// Official Dreamland AST transform: turns `use(a.b.c)` into `use(a, "b", "c")`
+// and `use\`...\`` into reactive template calls handled natively by dreamland/core!
+function dreamlandBabelPlugin({ types: t }) {
+  function memberChainToArgs(node) {
+    const props = [];
+    let cur = node;
+    while (t.isMemberExpression(cur)) {
+      if (cur.computed) {
+        props.unshift(cur.property);
+      } else if (t.isIdentifier(cur.property)) {
+        props.unshift(t.stringLiteral(cur.property.name));
+      } else {
+        return null;
+      }
+      cur = cur.object;
+    }
+    if (props.length === 0) return null;
+    return [cur, ...props];
+  }
+
+  return {
+    visitor: {
+      CallExpression(path) {
+        if (!t.isIdentifier(path.node.callee, { name: "use" })) return;
+        if (path.node.arguments.length !== 1) return;
+        const arg = path.node.arguments[0];
+        if (t.isMemberExpression(arg)) {
+          const args = memberChainToArgs(arg);
+          if (args) {
+            path.node.arguments = args;
+          }
+        }
+      },
+      TaggedTemplateExpression(path) {
+        if (!t.isIdentifier(path.node.tag, { name: "use" })) return;
+        const quasi = path.node.quasi;
+        const tplParam = path.scope.generateUidIdentifier("tpl");
+        const newExprs = quasi.expressions.map((expr) => {
+          if (t.isMemberExpression(expr)) {
+            const args = memberChainToArgs(expr);
+            if (args) return t.callExpression(tplParam, args);
+          }
+          return expr;
+        });
+        const fn = t.arrowFunctionExpression(
+          [tplParam],
+          t.templateLiteral(quasi.quasis, newExprs)
+        );
+        path.replaceWith(t.callExpression(t.identifier("use"), [fn]));
+      },
+    },
+  };
+}
+
+function compileDreamlandTsx(code, filename) {
+  const res = Babel.transform(code, {
+    filename,
+    presets: [["typescript", { isTSX: true, allExtensions: true }]],
+    plugins: [dreamlandBabelPlugin],
   });
-  return out;
+  return (
+    `import { h, Fragment, use } from "dreamland/core";\n` +
+    res.code
+  );
 }
 
 export async function bundleProject({ files, proxies, onWarn }) {
@@ -116,57 +169,16 @@ export async function bundleProject({ files, proxies, onWarn }) {
           return { contents: "", loader: "js" };
         }
         if (args.path.endsWith(".json")) return { contents: raw, loader: "json" };
-        const loader = args.path.endsWith(".tsx") ? "tsx" : args.path.endsWith(".ts") ? "ts" : "jsx";
-        const transformed = transformDreamlandMacros(raw);
-        // Builds a clean Dreamland Pointer via Object.create(__dl_Pointer.prototype) without calling super()
-        const prefix =
-          loader === "tsx" || loader === "jsx"
-            ? `import { h as __dl_h, Fragment as __dl_Frag, Pointer as __dl_Pointer, stateListen as __dl_stateListen, stateProxy as __dl_stateProxy, DREAMLAND as __dl_SYM } from "dreamland/core";
-const __dl_allPointers = new Set();
-const __dl_flushAll = () => {
-  for (const p of __dl_allPointers) p._sync();
-};
-const __dl_ptr = (getFn, setFn, deps = []) => {
-  const initial = getFn();
-  if (initial && initial instanceof __dl_Pointer) return initial;
-  const subs = new Set();
-  let lastVal = initial;
-  const ptr = Object.create(__dl_Pointer.prototype);
-  if (__dl_SYM) ptr[__dl_SYM] = "Pointer";
-  Object.defineProperty(ptr, "value", {
-    configurable: true,
-    enumerable: true,
-    get() { return lastVal; },
-    set(v) {
-      if (Object.is(lastVal, v)) return;
-      lastVal = v;
-      setFn(v);
-      for (const fn of subs) fn(v);
-    }
-  });
-  ptr.listen = (fn) => {
-    if (typeof fn === "function") subs.add(fn);
-  };
-  ptr._sync = () => {
-    const next = getFn();
-    if (!Object.is(lastVal, next)) {
-      lastVal = next;
-      for (const fn of subs) fn(next);
-    }
-  };
-  __dl_allPointers.add(ptr);
-  for (const dep of deps) {
-    if (dep && typeof dep === "object" && __dl_stateProxy in dep) {
-      try {
-        __dl_stateListen(dep, __dl_flushAll);
-      } catch (_) {}
-    }
-  }
-  ptr.map = (mapFn) => __dl_ptr(() => mapFn(getFn()), () => {}, deps);
-  return ptr;
-};\n`
-            : "";
-        return { contents: prefix + transformed, loader };
+        const isTsx = args.path.endsWith(".tsx") || args.path.endsWith(".jsx");
+        if (isTsx) {
+          try {
+            const compiled = compileDreamlandTsx(raw, args.path);
+            return { contents: compiled, loader: "jsx" };
+          } catch (e) {
+            return { errors: [{ text: String(e.message || e) }] };
+          }
+        }
+        return { contents: raw, loader: "ts" };
       });
     },
   };
@@ -188,8 +200,8 @@ const __dl_ptr = (getFn, setFn, deps = []) => {
     format: "esm",
     target: "es2022",
     jsx: "transform",
-    jsxFactory: "__dl_h",
-    jsxFragment: "__dl_Frag",
+    jsxFactory: "h",
+    jsxFragment: "Fragment",
     plugins: [vfsPlugin],
   });
 

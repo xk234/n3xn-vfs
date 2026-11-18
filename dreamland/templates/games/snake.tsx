@@ -9,8 +9,8 @@ export const App: Component<{}, { score: number; high: number; status: string }>
   this.high = Number(localStorage.getItem("dl_snake_high") || 0);
   this.status = "Press Start or Arrow Keys";
 
-  let canvas!: HTMLCanvasElement;
-  let snake: Pt[] = [{ x: 10, y: 10 }];
+  let canvas: HTMLCanvasElement | null = null;
+  let snake: Pt[] = [{ x: 10, y: 10 }, { x: 9, y: 10 }, { x: 8, y: 10 }];
   let dir: Pt = { x: 1, y: 0 };
   let nextDir: Pt = { x: 1, y: 0 };
   let food: Pt = { x: 15, y: 10 };
@@ -25,7 +25,7 @@ export const App: Component<{}, { score: number; high: number; status: string }>
 
   const draw = () => {
     const ctx = canvas?.getContext("2d");
-    if (!ctx) return;
+    if (!ctx || !canvas) return;
     const cell = canvas.width / COLS;
     ctx.fillStyle = "#020617";
     ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -80,12 +80,6 @@ export const App: Component<{}, { score: number; high: number; status: string }>
     draw();
   };
 
-  const setDirection = (dx: number, dy: number) => {
-    if (dx === -dir.x && dy === -dir.y) return;
-    nextDir = { x: dx, y: dy };
-    if (!loop) start();
-  };
-
   const start = () => {
     clearInterval(loop);
     snake = [{ x: 10, y: 10 }, { x: 9, y: 10 }, { x: 8, y: 10 }];
@@ -98,7 +92,14 @@ export const App: Component<{}, { score: number; high: number; status: string }>
     loop = window.setInterval(step, 110);
   };
 
+  const setDirection = (dx: number, dy: number) => {
+    if (dx === -dir.x && dy === -dir.y) return;
+    nextDir = { x: dx, y: dy };
+    if (!loop) start();
+  };
+
   this.mount = () => {
+    canvas = this.root.querySelector("canvas");
     draw();
     window.addEventListener("keydown", (e) => {
       if (e.key === "ArrowUp" || e.key === "w") setDirection(0, -1);
@@ -114,7 +115,7 @@ export const App: Component<{}, { score: number; high: number; status: string }>
         <span>🐍 Score: <strong>{use(this.score)}</strong></span>
         <span>Best: <strong>{use(this.high)}</strong></span>
       </div>
-      <canvas bind:this={use(canvas)} width="340" height="340" />
+      <canvas width="340" height="340" />
       <p class="status">{use(this.status)}</p>
       <div class="controls">
         <button on:click={start}>Start / Restart</button>

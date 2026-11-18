@@ -4,7 +4,7 @@ type Pt = { x: number; y: number };
 const COLS = 20;
 const ROWS = 20;
 
-export const App: Component<{}, {}, { score: number; high: number; status: string }> = function () {
+export const App: Component<{}, {}, { score: number; high: number; status: string }> = function (cx) {
   this.score = 0;
   this.high = Number(localStorage.getItem("dl_snake_high") || 0);
   this.status = "Press Start or Arrow Keys";
@@ -98,8 +98,8 @@ export const App: Component<{}, {}, { score: number; high: number; status: strin
     if (!loop) start();
   };
 
-  this.mount = () => {
-    canvas = this.root.querySelector("canvas");
+  cx.mount = () => {
+    canvas = cx.root.querySelector("canvas");
     draw();
     window.addEventListener("keydown", (e) => {
       if (e.key === "ArrowUp" || e.key === "w") setDirection(0, -1);

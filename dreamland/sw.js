@@ -1,7 +1,7 @@
 /* n3xn Dreamland SW — scoped to ./ (/dreamland/ on CF Pages, /n3xn-vfs/dreamland/ on GH Pages) */
-const SHELL = "n3xn-dreamland-shell-v2";
-const MONACO = "n3xn-dreamland-monaco-v2";
-const CDN = "n3xn-dreamland-cdn-v2";
+const SHELL = "n3xn-dreamland-shell-v3";
+const MONACO = "n3xn-dreamland-monaco-v3";
+const CDN = "n3xn-dreamland-cdn-v3";
 const VER = "monaco-editor@0.52.0";
 
 // Dynamically resolves "/dreamland/" on CF Pages OR "/n3xn-vfs/dreamland/" on GitHub Pages

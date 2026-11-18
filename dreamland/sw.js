@@ -1,7 +1,7 @@
-/* n3xn Dreamland SW v10 — Non-Redirected Clean Responses + CSS Fix + Universal Proxy */
-const SHELL = "n3xn-dreamland-shell-v14";
-const MONACO = "n3xn-dreamland-monaco-v14";
-const CDN = "n3xn-dreamland-cdn-v14";
+/* n3xn Dreamland SW v15 — Non-Redirected Clean Responses + CSS Fix + Universal Proxy */
+const SHELL = "n3xn-dreamland-shell-v15";
+const MONACO = "n3xn-dreamland-monaco-v15";
+const CDN = "n3xn-dreamland-cdn-v15";
 const VER = "monaco-editor@0.52.0";
 
 const BASE_PATH = new URL("./", self.location.href).pathname;
@@ -60,7 +60,6 @@ const EXTERNAL_WARM = [
   ESM + "dreamland/ssr",
 ];
 
-// Always reconstruct a clean Response so `res.redirected` is NEVER true (prevents browser navigate network errors)
 async function cleanResponse(res, fallbackMime) {
   const buf = await res.arrayBuffer();
   const ct = res.headers.get("Content-Type") || fallbackMime;
@@ -290,7 +289,6 @@ self.addEventListener("fetch", (event) => {
               ]
             : [url.href, url.pathname];
 
-          // Network-first when online (always returning clean non-redirected Response), fallback to cache offline
           try {
             const net = await fetch(url.href, { redirect: "follow", cache: "no-store" });
             if (net.ok) {

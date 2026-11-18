@@ -1,5 +1,5 @@
 /* n3xn Dreamland SW v7 — Modular Shell + Universal External Proxy + All Dreamland Plugins */
-const SHELL = "n3xn-dreamland-shell-v7";
+const SHELL = "n3xn-dreamland-shell-v8";
 const MONACO = "n3xn-dreamland-monaco-v7";
 const CDN = "n3xn-dreamland-cdn-v7";
 const VER = "monaco-editor@0.52.0";

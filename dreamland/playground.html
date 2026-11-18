@@ -68,24 +68,15 @@
   </div>
 
   <script type="module">
-    // Works on both https://xkvf.pages.dev/dreamland/ AND https://xk234.github.io/n3xn-vfs/dreamland/
     const BASE_URL = new URL("./", window.location.href).href;
-    const ESM_LIVE = "https://esm.sh/";
-    const ESM_PROXY = BASE_URL + "__cdn__/esm/";
-    const JSDELIVR_PROXY = BASE_URL + "__cdn__/jsdelivr/";
     const JSDELIVR_LIVE = "https://cdn.jsdelivr.net/";
-    const MONACO_PROXY = BASE_URL + "__monaco__/npm/monaco-editor@0.52.0/min/vs";
+    const JSDELIVR_PROXY = BASE_URL + "__cdn__/jsdelivr/";
     const MONACO_LIVE = JSDELIVR_LIVE + "npm/monaco-editor@0.52.0/min/vs";
-    const STORAGE_KEY = "n3xn_dreamland_vfs_v2";
+    const MONACO_PROXY = BASE_URL + "__monaco__/npm/monaco-editor@0.52.0/min/vs";
+    const STORAGE_KEY = "n3xn_dreamland_vfs_v3";
 
     if ("serviceWorker" in navigator) {
       navigator.serviceWorker.register("./sw.js", { scope: "./" }).catch(() => {});
-      navigator.serviceWorker.addEventListener("message", (e) => {
-        if (e.data?.type === "WARM_DREAMLAND_OK") {
-          log("Offline cache warmed (Monaco + esbuild + Dreamland)", "log-ok");
-          statusBadge.textContent = "Offline Ready";
-        }
-      });
     }
 
     const statusBadge = document.getElementById("status-badge");
@@ -101,29 +92,18 @@
       consoleOut.scrollTop = consoleOut.scrollHeight;
     }
 
-    async function pickEsmBase() {
-      if (navigator.serviceWorker?.controller) {
-        try {
-          const r = await fetch(ESM_PROXY + "dreamland/core", { method: "GET" });
-          const ct = (r.headers.get("content-type") || "").toLowerCase();
-          if (r.ok && !ct.includes("text/html")) return ESM_PROXY;
-        } catch (_) {}
-      }
-      return ESM_LIVE;
-    }
-
-    let esmBase = await pickEsmBase();
-
-    // Load esbuild-wasm (SW proxy if controlled, live CDN fallback on very first visit)
+    // 1. Load esbuild-wasm
     let esbuild;
     try {
-      if (!navigator.serviceWorker?.controller) throw new Error("sw not active yet");
+      if (!navigator.serviceWorker?.controller) throw new Error("sw pending");
       esbuild = await import(JSDELIVR_PROXY + "npm/esbuild-wasm@0.24.2/esm/browser.min.js");
+      await esbuild.initialize({ wasmURL: JSDELIVR_PROXY + "npm/esbuild-wasm@0.24.2/esbuild.wasm", worker: false });
     } catch {
       esbuild = await import(JSDELIVR_LIVE + "npm/esbuild-wasm@0.24.2/esm/browser.min.js");
+      await esbuild.initialize({ wasmURL: JSDELIVR_LIVE + "npm/esbuild-wasm@0.24.2/esbuild.wasm", worker: false });
     }
 
-    // Dynamically load Monaco loader.js so first visit never 404s before SW activates
+    // 2. Load Monaco safely & fix "define is not defined" in workers
     function loadScript(src) {
       return new Promise((res, rej) => {
         const s = document.createElement("script");
@@ -136,7 +116,7 @@
 
     let monacoBase = MONACO_PROXY;
     try {
-      if (!navigator.serviceWorker?.controller) throw new Error("sw not active yet");
+      if (!navigator.serviceWorker?.controller) throw new Error("sw pending");
       await loadScript(MONACO_PROXY + "/loader.js");
     } catch {
       monacoBase = MONACO_LIVE;
@@ -144,12 +124,47 @@
     }
 
     const DEFAULT_FILES = {
-      "/src/main.tsx": `import { css, type Component } from "dreamland/core";\nimport { HUD } from "./HUD.tsx";\n\nexport const App: Component<{}, { score: number; timeLeft: number; active: boolean; x: number; y: number }> = function () {\n  this.score = 0; this.timeLeft = 15; this.active = false; this.x = 50; this.y = 50;\n  let timer;\n  const move = () => { this.x = 12 + Math.floor(Math.random() * 76); this.y = 15 + Math.floor(Math.random() * 70); };\n  const start = () => { clearInterval(timer); this.score = 0; this.timeLeft = 15; this.active = true; move();\n    timer = setInterval(() => { this.timeLeft--; if (this.timeLeft <= 0) { clearInterval(timer); this.active = false; } }, 1000); };\n  return (\n    <div class="card"><HUD score={use(this.score)} timeLeft={use(this.timeLeft)} />\n      <div class="arena">{use(this.active).map((on) => on ? (\n        <button class="orb" style={use\`left: \${this.x}%; top: \${this.y}%;\`} on:click={() => { this.score++; move(); }}>+1</button>\n      ) : (\n        <div class="center"><p>{this.score > 0 ? \`Final: \${this.score}\` : "Dreamland Studio"}</p>\n        <button class="btn" on:click={start}>{this.score > 0 ? "Again" : "Start"}</button></div>\n      ))}</div></div>\n  );\n};\nApp.style = css\`:scope{max-width:460px;margin:2rem auto;background:#0f172a;border:1px solid #1e293b;border-radius:12px;padding:1.25rem}.arena{position:relative;height:260px;background:#020617;border-radius:8px;margin-top:1rem}.orb{position:absolute;transform:translate(-50%,-50%);width:44px;height:44px;border-radius:50%;border:none;background:#38bdf8;font-weight:800;cursor:pointer}.center{height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.75rem}.btn{background:#38bdf8;color:#090d16;border:none;padding:.6rem 1.2rem;border-radius:8px;font-weight:700;cursor:pointer}\`;\nexport default App;\n`,
-      "/src/HUD.tsx": `import { css, type Component } from "dreamland/core";\nexport const HUD: Component<{ score: number; timeLeft: number }> = function (cx) {\n  return (<header><h3>⚡ Dreamland Reflex</h3><div class="meta"><span>Score: <strong>{use(cx.score)}</strong></span><span>Time: <strong>{use(cx.timeLeft)}s</strong></span></div></header>);\n};\nHUD.style = css\`:scope{display:flex;justify-content:space-between;align-items:center}.meta{display:flex;gap:1rem;color:#94a3b8}strong{color:#38bdf8}\`;\n`,
+      "/src/main.tsx": `import { css, type Component } from "dreamland/core";
+import { HUD } from "./HUD.tsx";
+
+export const App: Component<{}, { score: number; timeLeft: number; active: boolean; x: number; y: number }> = function () {
+  this.score = 0; this.timeLeft = 15; this.active = false; this.x = 50; this.y = 50;
+  let timer: number | undefined;
+  const move = () => { this.x = 12 + Math.floor(Math.random() * 76); this.y = 15 + Math.floor(Math.random() * 70); };
+  const start = () => {
+    clearInterval(timer); this.score = 0; this.timeLeft = 15; this.active = true; move();
+    timer = window.setInterval(() => { this.timeLeft--; if (this.timeLeft <= 0) { clearInterval(timer); this.active = false; } }, 1000);
+  };
+  return (
+    <div class="card">
+      <HUD score={use(this.score)} timeLeft={use(this.timeLeft)} />
+      <div class="arena">
+        {use(this.active).map((on) => on ? (
+          <button class="orb" style={use\`left: \${this.x}%; top: \${this.y}%;\`} on:click={() => { this.score++; move(); }}>+1</button>
+        ) : (
+          <div class="center">
+            <p>{this.score > 0 ? \`Final: \${this.score}\` : "Dreamland Studio"}</p>
+            <button class="btn" on:click={start}>{this.score > 0 ? "Again" : "Start"}</button>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
+App.style = css\`:scope{max-width:460px;margin:2rem auto;background:#0f172a;border:1px solid #1e293b;border-radius:12px;padding:1.25rem}.arena{position:relative;height:260px;background:#020617;border-radius:8px;margin-top:1rem}.orb{position:absolute;transform:translate(-50%,-50%);width:44px;height:44px;border-radius:50%;border:none;background:#38bdf8;font-weight:800;cursor:pointer}.center{height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.75rem}.btn{background:#38bdf8;color:#090d16;border:none;padding:.6rem 1.2rem;border-radius:8px;font-weight:700;cursor:pointer}\`;
+export default App;
+`,
+      "/src/HUD.tsx": `import { css, type Component } from "dreamland/core";
+export const HUD: Component<{ score: number; timeLeft: number }> = function (cx) {
+  return (<header><h3>⚡ Dreamland Reflex</h3><div class="meta"><span>Score: <strong>{use(cx.score)}</strong></span><span>Time: <strong>{use(cx.timeLeft)}s</strong></span></div></header>);
+};
+HUD.style = css\`:scope{display:flex;justify-content:space-between;align-items:center}.meta{display:flex;gap:1rem;color:#94a3b8}strong{color:#38bdf8}\`;
+`,
     };
 
-    let files = JSON.parse(localStorage.getItem(STORAGE_KEY) || "null") || {};
-    for (const [k, v] of Object.entries(DEFAULT_FILES)) if (!files[k]) files[k] = v;
+    // Only load DEFAULT_FILES if storage is completely empty (so deleted files stay deleted!)
+    const savedRaw = localStorage.getItem(STORAGE_KEY);
+    let files = savedRaw ? JSON.parse(savedRaw) : structuredClone(DEFAULT_FILES);
     localStorage.setItem(STORAGE_KEY, JSON.stringify(files));
 
     let activeFile = files["/src/main.tsx"] ? "/src/main.tsx" : Object.keys(files)[0];
@@ -197,12 +212,14 @@
     }
 
     await new Promise((resolve, reject) => {
-      if (!window.require) { statusBadge.textContent = "Monaco missing"; reject(new Error("no monaco")); return; }
-      // Data-URI worker wrapper prevents WorkerGlobalScope URL parse errors on both local SW & CDN
+      // Point worker directly to workerMain.js via Blob so AMD `define()` is initialized cleanly
       window.MonacoEnvironment = {
-        getWorkerUrl: function () {
-          const code = `self.MonacoEnvironment = { baseUrl: "${monacoBase}/" }; importScripts("${monacoBase}/base/worker/workerMain.js");`;
-          return "data:text/javascript;charset=utf-8," + encodeURIComponent(code);
+        getWorker: function () {
+          const workerCode = `
+            self.MonacoEnvironment = { baseUrl: "${monacoBase}/" };
+            importScripts("${monacoBase}/base/worker/workerMain.js");
+          `;
+          return new Worker(URL.createObjectURL(new Blob([workerCode], { type: "application/javascript" })));
         },
       };
       window.require.config({ paths: { vs: monacoBase } });
@@ -236,11 +253,19 @@
       }, reject);
     });
 
-    try {
-      if (!navigator.serviceWorker?.controller) throw new Error("sw not active yet");
-      await esbuild.initialize({ wasmURL: JSDELIVR_PROXY + "npm/esbuild-wasm@0.24.2/esbuild.wasm", worker: false });
-    } catch {
-      await esbuild.initialize({ wasmURL: JSDELIVR_LIVE + "npm/esbuild-wasm@0.24.2/esbuild.wasm", worker: false });
+    // Cache fetched npm/esm modules in memory + CacheStorage so esbuild bundles them inline (NO MIME errors in srcdoc!)
+    const pkgMemCache = new Map();
+    async function fetchPackageSource(url) {
+      if (pkgMemCache.has(url)) return pkgMemCache.get(url);
+      const res = await fetch(url);
+      if (!res.ok) throw new Error(`HTTP ${res.status} for ${url}`);
+      const ct = (res.headers.get("content-type") || "").toLowerCase();
+      const text = await res.text();
+      if (ct.includes("text/html") || text.trimStart().startsWith("<!")) {
+        throw new Error(`Received HTML instead of JS for ${url}`);
+      }
+      pkgMemCache.set(url, { text, finalUrl: res.url || url });
+      return pkgMemCache.get(url);
     }
 
     function resolvePath(importer, rel) {
@@ -267,15 +292,40 @@
       const t0 = performance.now();
       consoleOut.innerHTML = "";
       const cssChunks = [];
-      esmBase = await pickEsmBase();
 
       const vfsPlugin = {
         name: "n3xn-vfs",
         setup(build) {
-          build.onResolve({ filter: /^[^./]/ }, (args) => {
-            if (args.path.startsWith("http")) return { path: args.path, external: true };
-            return { path: esmBase + args.path, external: true };
+          // Resolve HTTP sub-imports inside esm.sh bundles
+          build.onResolve({ filter: /^https?:\/\// }, (args) => ({
+            path: args.path,
+            namespace: "http-pkg",
+          }));
+          build.onResolve({ filter: /^\//, namespace: "http-pkg" }, (args) => ({
+            path: new URL(args.path, args.importer).href,
+            namespace: "http-pkg",
+          }));
+          build.onResolve({ filter: /^\./, namespace: "http-pkg" }, (args) => ({
+            path: new URL(args.path, args.importer).href,
+            namespace: "http-pkg",
+          }));
+
+          // Resolve bare npm imports ("dreamland/core", etc.) via esm.sh and BUNDLE them inline!
+          build.onResolve({ filter: /^[^./]/ }, (args) => ({
+            path: "https://esm.sh/" + args.path,
+            namespace: "http-pkg",
+          }));
+
+          build.onLoad({ filter: /.*/, namespace: "http-pkg" }, async (args) => {
+            try {
+              const { text } = await fetchPackageSource(args.path);
+              return { contents: text, loader: "js" };
+            } catch (e) {
+              return { errors: [{ text: String(e.message || e) }] };
+            }
           });
+
+          // Local VFS files
           build.onResolve({ filter: /^(\.|\/)/ }, (args) => {
             const importer = String(args.importer || "/src/main.tsx").replace(/^vfs:/, "");
             const base = resolvePath(importer, args.path);
@@ -283,6 +333,7 @@
             if (found) return { path: found, namespace: "vfs" };
             return { errors: [{ text: "Not found: " + args.path + " (resolved " + base + ")" }] };
           });
+
           build.onLoad({ filter: /.*/, namespace: "vfs" }, (args) => {
             const src = files[args.path] ?? "";
             if (args.path.endsWith(".css")) { cssChunks.push(src); return { contents: "", loader: "js" }; }
@@ -293,7 +344,15 @@
       };
 
       try {
-        const virtualEntry = 'import * as Entry from "/src/main.tsx";\nimport { h } from "' + esmBase + 'dreamland/core";\nconst root = document.getElementById("app");\nif (root && root.childNodes.length === 0) { const C = Entry.default || Entry.App; if (typeof C === "function") root.appendChild(h(C, {})); }\n';
+        const virtualEntry = `
+          import * as Entry from "/src/main.tsx";
+          import { h } from "dreamland/core";
+          const root = document.getElementById("app");
+          if (root && root.childNodes.length === 0) {
+            const C = Entry.default || Entry.App;
+            if (typeof C === "function") root.appendChild(h(C, {}));
+          }
+        `;
         const out = await esbuild.build({
           stdin: { contents: virtualEntry, resolveDir: "/", loader: "tsx" },
           bundle: true, write: false, format: "esm", target: "es2022",
@@ -306,7 +365,7 @@
         previewFrame.srcdoc = lastBuiltHtml;
         const ms = Math.round(performance.now() - t0);
         statusBadge.textContent = (navigator.onLine ? "Online" : "Offline") + " · " + ms + "ms";
-        log("Compiled in " + ms + "ms (" + (esmBase === ESM_PROXY ? "SW offline cache" : "esm.sh") + ")", "log-ok");
+        log("Compiled & bundled in " + ms + "ms", "log-ok");
       } catch (err) {
         statusBadge.textContent = "Build Error";
         (err?.errors ? err.errors.map((e) => e.text) : [String(err)]).forEach((m) => log(m, "log-err"));
@@ -342,9 +401,8 @@
     };
     document.getElementById("export-btn").onclick = () => {
       if (!lastBuiltHtml) return;
-      const portable = lastBuiltHtml.replaceAll(ESM_PROXY, ESM_LIVE);
       const a = document.createElement("a");
-      a.href = URL.createObjectURL(new Blob([portable], { type: "text/html" }));
+      a.href = URL.createObjectURL(new Blob([lastBuiltHtml], { type: "text/html" }));
       a.download = "dreamland-app.html"; a.click();
     };
 

@@ -2,7 +2,7 @@ import { css, type Component } from "dreamland/core";
 
 type Task = { id: number; text: string; done: boolean };
 
-export const App: Component<{}, {}, { draft: string; count: number }> = function (cx) {
+export const App: Component<{}, { draft: string; count: number }> = function () {
   const defaults: Task[] = [
     { id: 1, text: "Build a Dreamland game offline", done: true },
     { id: 2, text: "Export standalone .HTML bundle", done: false },
@@ -73,13 +73,13 @@ export const App: Component<{}, {}, { draft: string; count: number }> = function
     if (!clean) return;
     items.unshift({ id: Date.now(), text: clean, done: false });
     this.draft = "";
-    const input = cx.root.querySelector("input");
+    const input = this.root.querySelector("input");
     if (input) input.value = "";
     renderList();
   };
 
-  cx.mount = () => {
-    listEl = cx.root.querySelector("ul");
+  this.cx.mount = () => {
+    listEl = this.root.querySelector("ul");
     renderList();
   };
 

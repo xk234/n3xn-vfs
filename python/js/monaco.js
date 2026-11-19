@@ -21,7 +21,7 @@ export async function initMonaco({container,files,initialFile,onChange,onRun,onC
   });
   return new Promise((resolve,reject)=>{
     const vs=CDN+"/vs";
-    window.MonacoEnvironment={getWorkerUrl:()=> "data:text/javascript;charset=utf-8,"+encodeURIComponent("self.MonacoEnvironment={baseUrl:'"+CDN+"/'};importScripts('"+vs+"/base/worker/workerMain.js');")};
+    window.MonacoEnvironment={getWorker(){const code='self.MonacoEnvironment={baseUrl:"'+CDN+'/"};importScripts("'+vs+'/base/worker/workerMain.js");';return new Worker(URL.createObjectURL(new Blob([code],{type:"application/javascript"})));}};
     window.require.config({paths:{vs}});
     window.require(["vs/editor/editor.main"],()=>{
       try{

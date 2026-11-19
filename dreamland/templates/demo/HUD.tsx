@@ -1,13 +1,13 @@
 import { css, type Component } from "dreamland/core";
 
-export const HUD: Component<{ score: number; best: number; timeLeft: number }> = function (cx) {
+export const HUD: Component<{ score: number; best: number; timeLeft: number }> = function () {
   return (
     <header>
       <h3>⚡ Dreamland Reflex</h3>
       <div class="meta">
-        <span>Score: <strong>{use(cx.score)}</strong></span>
-        <span>Best: <strong>{use(cx.best)}</strong></span>
-        <span>Time: <strong>{use(cx.timeLeft)}s</strong></span>
+        <span>Score: <strong>{use(this.score)}</strong></span>
+        <span>Best: <strong>{use(this.best)}</strong></span>
+        <span>Time: <strong>{use(this.timeLeft)}s</strong></span>
       </div>
     </header>
   );

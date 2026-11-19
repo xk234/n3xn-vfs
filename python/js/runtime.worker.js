@@ -88,11 +88,12 @@ async function install(id,name){
     const pkg=String(name||"").trim();
     if(!/^[A-Za-z0-9_.-]+$/.test(pkg))throw new Error("Use a package name such as numpy or requests.");
     py.globals.set("_n3xn_pkg_name",pkg);
+    let installMode="pyodide";
     try{await py.loadPackage(pkg);}
-    catch(_){await py.runPythonAsync("import micropip\nawait micropip.install(_n3xn_pkg_name)");}
+    catch(_){installMode="micropip";await py.runPythonAsync("import micropip\\nawait micropip.install(_n3xn_pkg_name)");}
     py.globals.delete("_n3xn_pkg_name");
-    installedPackages.add(pkg);
-    send("packageDone",{id,name:pkg});
+    installedPackages.set(pkg,installMode);
+    send("packageDone",{id,name:pkg,installMode});
   }catch(error){send("packageError",{id,name,message:error?.stack||String(error)});}
 }
 self.onmessage=async(event)=>{

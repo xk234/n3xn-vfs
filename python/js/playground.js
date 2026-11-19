@@ -54,7 +54,7 @@ setRuntimeHandlers({
  ready:msg=>{setStatus("Pyodide "+msg.version,"ready");log("CPython WebAssembly runtime ready.","ok");},
  stdout:msg=>log(msg.text,msg.level==="warn"?"warn":"out"),
  stderr:msg=>log(msg.text,"err"),
- clear:()=>{ctx.clearRect(0,0,canvas.width,canvas.height);},
+ clear:msg=>{ctx.fillStyle=msg.color||"#080f20";ctx.fillRect(0,0,canvas.width,canvas.height);},
  draw:drawShape,
  html:msg=>{$("web-preview").srcdoc=msg.html;document.querySelector('[data-panel="preview-panel"]').click();},
  error:msg=>{setStatus("Runtime error","error");log(msg.message,"err");},
@@ -97,9 +97,9 @@ async function importFile(file){
 async function init(){
  try{
   if("serviceWorker" in navigator){
-   const reg=await navigator.serviceWorker.register(BASE+"python/sw.js",{scope:BASE+"python/"});
+   const reg=await navigator.serviceWorker.register(BASE+"sw.js",{scope:BASE});
    await navigator.serviceWorker.ready;
-   if(!navigator.serviceWorker.controller&&!sessionStorage.getItem("n3xn_python_sw_reload")){
+   if((!navigator.serviceWorker.controller||!navigator.serviceWorker.controller.scriptURL.includes("/python/sw.js"))&&!sessionStorage.getItem("n3xn_python_sw_reload")){
     sessionStorage.setItem("n3xn_python_sw_reload","1");location.reload();return;
    }
   }
@@ -116,6 +116,12 @@ async function init(){
 $("run-btn").onclick=run;
 $("stop-btn").onclick=()=>{stopRuntime();$("run-btn").disabled=false;$("stop-btn").disabled=true;};
 $("clear-output-btn").onclick=clearOutput;
+async function sendConsoleCommand(){
+ const input=$("console-input"),code=input.value.trim();if(!code)return;input.value="";log(">>> "+code,"system");
+ try{const result=await runConsole(code);if(result)log(result,"ok");}catch(error){log(error.message||String(error),"err");}
+}
+$("console-send-btn").onclick=sendConsoleCommand;
+$("console-input").addEventListener("keydown",event=>{if(event.key==="Enter"){event.preventDefault();sendConsoleCommand();}});
 $("new-file-btn").onclick=()=>{const path=normalizePath(prompt("New project file path:","/src/module.py")||"");if(path==="/")return;if(files[path]){log("File already exists: "+path,"warn");return;}files[path]="# "+path.split("/").pop()+"\n";switchModel(path,files[path]);openFile(path);renderFiles();saveSoon();};
 $("import-btn").onclick=()=>$("file-input").click();
 $("file-input").onchange=e=>{for(const file of e.target.files)importFile(file);e.target.value="";};

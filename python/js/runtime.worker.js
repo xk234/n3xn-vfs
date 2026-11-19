@@ -1,5 +1,21 @@
 let py=null,clickHandler=null,baseURL="";
 const send=(type,data={})=>self.postMessage({type,...data});
+const downloadedWheels=new Map();
+const installedPackages=new Set();
+const nativeFetch=self.fetch.bind(self);
+self.fetch=async(input,init)=>{
+  const response=await nativeFetch(input,init);
+  const url=typeof input==="string"?input:input?.url||String(input);
+  const method=init?.method||input?.method||"GET";
+  if(method==="GET"&&response.ok&&/\\.whl(?:[?#]|$)/i.test(url)){
+    try{
+      const bytes=await response.clone().arrayBuffer();
+      const name=decodeURIComponent(new URL(url).pathname.split("/").pop());
+      downloadedWheels.set(name,{name,url,type:response.headers.get("content-type")||"application/octet-stream",bytes});
+    }catch(_){}
+  }
+  return response;
+};
 
 function releaseClickHandler(){
   const previous=clickHandler;
@@ -75,6 +91,7 @@ async function install(id,name){
     try{await py.loadPackage(pkg);}
     catch(_){await py.runPythonAsync("import micropip\nawait micropip.install(_n3xn_pkg_name)");}
     py.globals.delete("_n3xn_pkg_name");
+    installedPackages.add(pkg);
     send("packageDone",{id,name:pkg});
   }catch(error){send("packageError",{id,name,message:error?.stack||String(error)});}
 }
@@ -83,6 +100,12 @@ self.onmessage=async(event)=>{
   if(msg.type==="init"){await initialize(msg.base);return;}
   if(msg.type==="run"){if(!py){send("runError",{id:msg.id,message:"Python runtime is not initialized."});return;}await run(msg.id,msg.files,msg.entry);return;}
   if(msg.type==="install"){if(!py){send("packageError",{id:msg.id,message:"Python runtime is not initialized."});return;}await install(msg.id,msg.name);return;}
+  if(msg.type==="export-assets"){
+    const assets=[...downloadedWheels.values()].map(asset=>({name:asset.name,url:asset.url,type:asset.type,bytes:asset.bytes.slice(0)}));
+    const transfer=assets.map(asset=>asset.bytes);
+    self.postMessage({type:"exportAssets",id:msg.id,assets,packages:[...installedPackages]},transfer);
+    return;
+  }
   if(msg.type==="repl"){
     try{const result=await py.runPythonAsync(msg.code);let value="";if(result!==undefined&&result!==null){value=String(result);if(result&&typeof result.destroy==="function")result.destroy();}send("replResult",{id:msg.id,result:value});}
     catch(error){send("replError",{id:msg.id,message:error?.stack||String(error)});}

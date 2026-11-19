@@ -110,7 +110,8 @@ async function init(){
   if(!files[entry])entry=Object.keys(files)[0];
   for(const tpl of templates){const option=document.createElement("option");option.value=tpl.id;option.textContent="["+tpl.category+"] "+tpl.name;option.title=tpl.description||"";$("template-select").appendChild(option);}
   $("template-select").onchange=()=>loadTemplate(templates.find(t=>t.id===$("template-select").value));
-  editor=await initMonaco({container:$("monaco-root"),files,initialFile:entry,onChange:onEditorChange,onRun:run,onCursor:pos=>$("cursor-label").textContent="Ln "+pos.lineNumber+", Col "+pos.column});\n  setEditorTheme(savedTheme);
+  editor=await initMonaco({container:$("monaco-root"),files,initialFile:entry,onChange:onEditorChange,onRun:run,onCursor:pos=>$("cursor-label").textContent="Ln "+pos.lineNumber+", Col "+pos.column});
+  setEditorTheme(savedTheme);
   openFile(entry);renderFiles();setStatus("Editor ready","ready");log("Python project restored. Press Run to start the WebAssembly runtime.","system");
  }catch(error){setStatus("Startup failed","error");log(error.stack||error.message,"err");}
 }

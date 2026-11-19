@@ -53,3 +53,17 @@ export async function runConsole(code){
 }
 export function sendCanvasClick(x,y){worker?.postMessage({type:"click",x,y});}
 export function stopRuntime(){if(activeReject)activeReject(new Error("Execution stopped by user."));handlers.done=null;handlers.runError=null;if(worker)worker.terminate();worker=null;readyPromise=null;emit("stopped",{});}
+
+export async function exportRuntimeAssets(){
+  await boot();const id=++sequence;
+  return new Promise((resolve,reject)=>{
+    const timer=setTimeout(()=>{handlers.exportAssets=previous;reject(new Error("Timed out collecting installed Python packages."));},30000);
+    const previous=handlers.exportAssets;
+    handlers.exportAssets=msg=>{
+      if(msg.id!==id)return;
+      clearTimeout(timer);handlers.exportAssets=previous;
+      resolve({assets:msg.assets||[],packages:msg.packages||[]});
+    };
+    worker.postMessage({type:"export-assets",id});
+  });
+}

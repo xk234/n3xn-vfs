@@ -54,12 +54,13 @@ function dreamlandBabelPlugin({ types: t }) {
       TaggedTemplateExpression(path) {
         if (!t.isIdentifier(path.node.tag, { name: "use" })) return;
         const quasi = path.node.quasi;
-        const deps = [];
-        for (const expr of quasi.expressions) {
-          if (t.isMemberExpression(expr)) {
-            deps.push(expr.object);
-          }
-        }
+
+        // A tagged template can contain compound expressions such as
+        // `display: ${this.active ? "block" : "none"}`. Watching only
+        // direct MemberExpressions misses those nested state reads. Every
+        // component template depends on its component state, so subscribe
+        // once to the component proxy and re-evaluate the whole template.
+        const deps = [t.thisExpression()];
         const fn = t.arrowFunctionExpression(
           [],
           t.templateLiteral(quasi.quasis, quasi.expressions)

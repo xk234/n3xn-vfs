@@ -8,13 +8,14 @@ export {};
 
 const DREAMLAND_FALLBACK_DTS = `
 declare module "dreamland/core" {
-  export type ComponentContext<Props = {}, Context = {}> = Props & Context & {
-    root: HTMLElement;
+  export type ComponentContext<State = any> = {
+    state: State;
     mount?: () => void;
+    init?: () => void;
+    load?: () => void;
   };
-  export type Component<Props = {}, Context = {}, State = {}> = (
-    this: Props & State & { root: HTMLElement; mount?: () => void },
-    cx: ComponentContext<Props, Context>
+  export type Component<Props = {}, This = {}> = (
+    this: Props & This & { root: HTMLElement; cx: ComponentContext<Props & This> }
   ) => Node | null | undefined;
   export function h(tag: any, props: any, ...children: any[]): Node;
   export namespace h {
@@ -105,19 +106,29 @@ export async function initMonaco({ monacoMin, jsdelivrProxy, container, files, i
         });
         tsDefaults.setEagerModelSync(true);
 
-        // Keep editor declarations on the exact same version as the runtime bundle.
+        // Mirror the published package layout so TypeScript can resolve the
+        // package export "dreamland/core" exactly as the runtime bundler does.
         let loadedPinnedTypes = false;
         try {
-          const dtsRes = await fetch(jsdelivrProxy + "npm/dreamland@0.1.3/dist/core.d.ts");
-          if (dtsRes.ok) {
+          const [pkgRes, dtsRes] = await Promise.all([
+            fetch(jsdelivrProxy + "npm/dreamland@0.1.3/package.json"),
+            fetch(jsdelivrProxy + "npm/dreamland@0.1.3/dist/core.d.ts"),
+          ]);
+          if (pkgRes.ok && dtsRes.ok) {
+            const packageJson = await pkgRes.text();
             const upstreamDts = await dtsRes.text();
-            if (upstreamDts.trim() && !upstreamDts.trimStart().startsWith("<")) {
-              tsDefaults.addExtraLib(upstreamDts, "file:///node_modules/dreamland/core.d.ts");
+            if (
+              packageJson.trim().startsWith("{") &&
+              upstreamDts.trim() &&
+              !upstreamDts.trimStart().startsWith("<")
+            ) {
+              tsDefaults.addExtraLib(packageJson, "file:///node_modules/dreamland/package.json");
+              tsDefaults.addExtraLib(upstreamDts, "file:///node_modules/dreamland/dist/core.d.ts");
               loadedPinnedTypes = true;
             }
           }
         } catch (error) {
-          console.warn("Could not load pinned Dreamland declarations; using editor fallback types.", error);
+          console.warn("Could not load pinned Dreamland package metadata/types; using editor fallback types.", error);
         }
 
         tsDefaults.addExtraLib(DREAMLAND_GLOBAL_DTS, "file:///node_modules/@types/dreamland-globals/index.d.ts");

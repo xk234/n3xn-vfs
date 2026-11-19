@@ -90,6 +90,7 @@ async function exportStandalone(){
   log("Preparing a self-contained HTML export. Collecting runtime assets and installed package wheels…","system");
   const runtimeAssets=await exportRuntimeAssets();
   const result=await buildStandaloneHtml({files,entry,packages:runtimeAssets.packages,wheelAssets:runtimeAssets.assets});
+  runtimeAssets.assets.length=0;
   const blob=new Blob([result.html],{type:"text/html"});
   const url=URL.createObjectURL(blob);
   const a=document.createElement("a");

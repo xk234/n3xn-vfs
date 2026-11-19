@@ -1,6 +1,7 @@
 import {loadProject,saveProject,fetchManifest,fetchTemplate,normalizePath,downloadProject} from "./vfs.js";
 import {initMonaco,switchModel,removeModel,setEditorTheme,setPythonMarkers,getEditor,clearPythonMarkers} from "./monaco.js";
-import {setRuntimeHandlers,ensureRuntime,runProject,runConsole,installPackage,stopRuntime,sendCanvasClick} from "./runtime.js";
+import {setRuntimeHandlers,ensureRuntime,runProject,runConsole,installPackage,stopRuntime,sendCanvasClick,exportRuntimeAssets} from "./runtime.js";
+import {buildStandaloneHtml} from "./standalone-export.js";
 const $=id=>document.getElementById(id);
 const BASE=new URL("../",import.meta.url).href;
 const status=$("runtime-status"),consoleOut=$("console-out"),fileList=$("file-list"),canvas=$("graphics-canvas"),ctx=canvas.getContext("2d");
@@ -81,6 +82,30 @@ async function run(){
   const message=error.message||String(error);log(message,"err");setPythonMarkers(entry,message);
  }finally{$("run-btn").disabled=false;$("stop-btn").disabled=true;}
 }
+async function exportStandalone(){
+ try{
+  files[activeFile]=editor.getValue();
+  saveSoon();
+  setStatus("Preparing standalone export…");
+  log("Preparing a self-contained HTML export. Collecting runtime assets and installed package wheels…","system");
+  const runtimeAssets=await exportRuntimeAssets();
+  const result=await buildStandaloneHtml({files,entry,packages:runtimeAssets.packages,wheelAssets:runtimeAssets.assets});
+  runtimeAssets.assets.length=0;
+  const blob=new Blob([result.html],{type:"text/html"});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement("a");
+  a.href=url;
+  a.download="n3xn-python-standalone.html";
+  a.click();
+  setTimeout(()=>URL.revokeObjectURL(url),5000);
+  const mb=(blob.size/1048576).toFixed(1);
+  log("Standalone HTML created: "+mb+" MB · "+result.stats.assets+" runtime assets · "+result.stats.wheels+" package wheels · "+result.stats.compression+"% gzip reduction.","ok");
+  setStatus("Standalone export ready","ready");
+ }catch(error){
+  setStatus("Standalone export failed","error");
+  log("Standalone export failed: "+(error.message||String(error)),"err");
+ }
+}
 async function importFile(file){
  try{
   const text=await file.text();
@@ -128,6 +153,7 @@ $("new-file-btn").onclick=()=>{const path=normalizePath(prompt("New project file
 $("import-btn").onclick=()=>$("file-input").click();
 $("file-input").onchange=async e=>{for(const file of Array.from(e.target.files||[]))await importFile(file);e.target.value="";};
 $("export-btn").onclick=()=>{files[activeFile]=editor.getValue();downloadProject({files,entry});log("Project export created.","ok");};
+$("export-standalone-btn").onclick=exportStandalone;
 $("set-entry-btn").onclick=()=>{entry=activeFile;$("project-name").textContent=entry.split("/").pop();saveSoon();log("Run entry point set to "+entry,"ok");};
 $("packages-btn").onclick=()=>{
  $("dialog-title").textContent="Python packages";

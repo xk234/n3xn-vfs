@@ -18,6 +18,7 @@ async function initialize(base){
 function cleanProjectPath(path){return String(path).replace(/^\/+/, "").split("/").filter(p=>p&&p!=="."&&p!=="..").join("/");}
 async function syncFiles(files){
   const root="/home/pyodide/project";
+  try{await py.runPythonAsync("import shutil, os\\nshutil.rmtree('/home/pyodide/project', ignore_errors=True)\\nos.makedirs('/home/pyodide/project', exist_ok=True)");}catch(_){}
   try{py.FS.mkdirTree(root);}catch(_){}
   for(const [path,content] of Object.entries(files||{})){
     const clean=cleanProjectPath(path);

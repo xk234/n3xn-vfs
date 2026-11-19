@@ -48,7 +48,7 @@ export async function initMonaco({container,files,initialFile,onChange,onRun,onC
         const uri=path=>monaco.Uri.parse("file://"+path);
         const models={};
         for(const [path,code] of Object.entries(files)) models[path]=monaco.editor.createModel(code,"python",uri(path));
-        editor=monaco.editor.create({container,model:models[initialFile],theme:"vs-dark",automaticLayout:true,fontSize:13,fontFamily:"'JetBrains Mono',Consolas,monospace",minimap:{enabled:false},scrollBeyondLastLine:false,wordWrap:"on",tabSize:4,insertSpaces:true,bracketPairColorization:{enabled:true},quickSuggestions:true,suggestOnTriggerCharacters:true,padding:{top:12}});
+        editor=monaco.editor.create(container,{model:models[initialFile],theme:"vs-dark",automaticLayout:true,fontSize:13,fontFamily:"'JetBrains Mono',Consolas,monospace",minimap:{enabled:false},scrollBeyondLastLine:false,wordWrap:"on",tabSize:4,insertSpaces:true,bracketPairColorization:{enabled:true},quickSuggestions:true,suggestOnTriggerCharacters:true,padding:{top:12}});
         editor.onDidChangeModelContent(()=>onChange(editor.getValue()));
         editor.onDidChangeCursorPosition(e=>onCursor?.(e.position));
         editor.addCommand(monaco.KeyMod.CtrlCmd|monaco.KeyCode.Enter,onRun);

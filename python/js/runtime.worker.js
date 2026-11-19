@@ -9,6 +9,7 @@ async function initialize(base){
       write:(text,level)=>send("stdout",{text:String(text),level:level||"out"}),
       clear:(color)=>send("clear",{color:color||"#080f20"}),
       draw:(kind,x,y,w,h,color,label)=>send("draw",{kind,x,y,w,h,color,label}),
+      draw_batch:(operations)=>{const converted=operations.toJs?operations.toJs():operations;if(operations.destroy)operations.destroy();send("drawBatch",{operations:converted});},
       show_html:(html)=>send("html",{html:String(html)}),
       on_click:(callback)=>{clickHandler=callback;}
     });
@@ -18,7 +19,7 @@ async function initialize(base){
 function cleanProjectPath(path){return String(path).replace(/^\/+/, "").split("/").filter(p=>p&&p!=="."&&p!=="..").join("/");}
 async function syncFiles(files){
   const root="/home/pyodide/project";
-  try{await py.runPythonAsync("import shutil, os\\nshutil.rmtree('/home/pyodide/project', ignore_errors=True)\\nos.makedirs('/home/pyodide/project', exist_ok=True)");}catch(_){}
+  try{await py.runPythonAsync("import shutil, os\nshutil.rmtree('/home/pyodide/project', ignore_errors=True)\nos.makedirs('/home/pyodide/project', exist_ok=True)");}catch(_){}
   try{py.FS.mkdirTree(root);}catch(_){}
   for(const [path,content] of Object.entries(files||{})){
     const clean=cleanProjectPath(path);

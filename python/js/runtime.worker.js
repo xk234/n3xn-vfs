@@ -7,7 +7,7 @@ async function initialize(base){
     py=await loadPyodide({indexURL:baseURL+"__pyodide__/",stdout:(text)=>send("stdout",{text}),stderr:(text)=>send("stderr",{text})});
     py.registerJsModule("n3xn",{
       write:(text,level)=>send("stdout",{text:String(text),level:level||"out"}),
-      clear:()=>send("clear",{}),
+      clear:(color)=>send("clear",{color:color||"#080f20"}),
       draw:(kind,x,y,w,h,color,label)=>send("draw",{kind,x,y,w,h,color,label}),
       show_html:(html)=>send("html",{html:String(html)}),
       on_click:(callback)=>{clickHandler=callback;}
@@ -56,6 +56,11 @@ self.onmessage=async(event)=>{
   if(msg.type==="init"){await initialize(msg.base);return;}
   if(msg.type==="run"){if(!py){send("runError",{id:msg.id,message:"Python runtime is not initialized."});return;}await run(msg.id,msg.files,msg.entry);return;}
   if(msg.type==="install"){if(!py){send("packageError",{id:msg.id,message:"Python runtime is not initialized."});return;}await install(msg.id,msg.name);return;}
+  if(msg.type==="repl"){
+    try{const result=await py.runPythonAsync(msg.code);let value="";if(result!==undefined&&result!==null){value=String(result);if(result&&typeof result.destroy==="function")result.destroy();}send("replResult",{id:msg.id,result:value});}
+    catch(error){send("replError",{id:msg.id,message:error?.stack||String(error)});}
+    return;
+  }
   if(msg.type==="click"&&clickHandler){
     try{const result=clickHandler(msg.x,msg.y);if(result&&typeof result.destroy==="function")result.destroy();}
     catch(error){send("stderr",{text:error?.stack||String(error)});}

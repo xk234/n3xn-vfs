@@ -19,7 +19,7 @@ export async function buildStandaloneHtml({files,entry,packages={},wheelAssets=[
  for(const name of CORE){const bytes=await getAsset(name);assets.set(name,{name,bytes,type:name.endsWith(".wasm")?"application/wasm":name.endsWith(".js")?"text/javascript":name.endsWith(".json")?"application/json":"application/octet-stream",url:BASE+"__pyodide__/"+name,wheel:false});}
  for(const w of wheelList){if(w?.name&&w.bytes)assets.set(w.name,{name:w.name,bytes:new Uint8Array(w.bytes),type:w.type||"application/octet-stream",url:w.url||w.name,wheel:true});}
  const encoded={};let rawBytes=0,packedBytes=0;
- for(const a of assets.values()){rawBytes+=a.bytes.length;const p=await pack(a.bytes);packedBytes+=p.bytes.length;encoded[a.name]={data:b64(p.bytes),encoding:p.encoding,type:a.type,url:a.url,wheel:a.wheel};}
+ for(const a of assets.values()){rawBytes+=a.bytes.length;const p=await pack(a.bytes);packedBytes+=p.bytes.length;encoded[a.name]={data:b64(p.bytes),encoding:p.encoding,type:a.type,url:a.url,wheel:a.wheel};a.bytes=null;}
  const bundle={assets:encoded,packages:packages||{},entry:entry||"/main.py",files:files||{}};
  const worker=String.raw`
 const BUNDLE=__BUNDLE__,send=(type,data={})=>self.postMessage({type,...data});

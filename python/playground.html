@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>n3xn Python Studio</title><meta name="theme-color" content="#090d18">
+<link rel="stylesheet" href="./playground.css">
+</head>
+<body data-theme="midnight">
+<header class="topbar">
+  <div class="brand"><span class="brand-mark">Py</span><span>n3xn <b>Python Studio</b></span><span class="version">WASM</span><a href="../" class="nav">VFS</a><a href="../dreamland/" class="nav">Dreamland</a></div>
+  <div class="toolbar">
+    <span id="runtime-status" class="status"><i></i> Starting…</span>
+    <select id="template-select" title="Open a demo project"></select>
+    <select id="theme-select" title="Editor theme"><option value="midnight">Midnight</option><option value="dracula">Dracula</option><option value="nord">Nord</option><option value="monokai">Monokai</option><option value="light">Light</option></select>
+    <button id="new-file-btn">＋ File</button><button id="import-btn">Import</button><button id="export-btn">Export project</button>
+    <button id="packages-btn">Packages</button><button id="warm-btn">Warm offline</button>
+    <button id="stop-btn" class="danger" disabled>■ Stop</button><button id="run-btn" class="primary">▶ Run <kbd>Ctrl ↵</kbd></button>
+  </div>
+</header>
+<main class="workspace">
+  <aside class="sidebar">
+    <div class="side-heading"><span>PROJECT</span><span id="project-name">python-project</span></div>
+    <div id="file-list" class="file-list"></div>
+    <div class="side-footer"><span id="file-count">0 files</span><span id="save-state">Saved</span></div>
+  </aside>
+  <section class="editor-pane">
+    <div class="editor-heading"><div><span class="python-dot">●</span><span id="active-file">main.py</span></div><div class="editor-actions"><button id="format-btn" title="Format Python">Format</button><button id="editor-fullscreen" title="Toggle editor focus">⛶</button></div></div>
+    <div id="monaco-root"></div>
+    <div class="editor-status"><span id="language-label">Python 3 · Pyodide</span><span id="cursor-label">Ln 1, Col 1</span><span id="encoding-label">UTF-8</span></div>
+  </section>
+  <section class="output-pane">
+    <div class="output-tabs"><button class="tab active" data-panel="console-panel">Terminal</button><button class="tab" data-panel="graphics-panel">Graphics</button><button class="tab" data-panel="preview-panel">Web Preview</button><span class="output-spacer"></span><button id="clear-output-btn" class="quiet">Clear</button></div>
+    <div id="console-panel" class="output-panel active"><div class="console-toolbar"><span>PYTHON CONSOLE</span><span id="execution-time">Ready</span></div><div id="console-out" aria-live="polite"></div><div class="input-row"><span class="prompt">›</span><input id="console-input" placeholder="Python console command (coming soon)" disabled><button disabled>Send</button></div></div>
+    <div id="graphics-panel" class="output-panel"><div class="console-toolbar"><span>CANVAS / GRAPHICS</span><span>n3xn graphics bridge</span></div><canvas id="graphics-canvas" width="640" height="360"></canvas><p class="graphics-hint">Python demos can draw here with <code>from n3xn import draw, clear, on_click</code>.</p></div>
+    <div id="preview-panel" class="output-panel"><div class="console-toolbar"><span>HTML OUTPUT</span><span>Sandboxed preview</span></div><iframe id="web-preview" sandbox="allow-scripts allow-forms" title="Python generated web preview"></iframe></div>
+  </section>
+</main>
+<div id="dialog" class="dialog hidden"><div class="dialog-card"><div class="dialog-title"><b id="dialog-title">Packages</b><button id="dialog-close">×</button></div><p id="dialog-description"></p><div id="dialog-content"></div><div class="dialog-actions"><button id="dialog-cancel">Close</button><button id="dialog-confirm" class="primary">Install</button></div></div></div>
+<input id="file-input" type="file" accept=".py,.json,.n3py.json,.txt" hidden>
+<script type="module" src="./js/playground.js"></script>
+</body></html>

@@ -1,0 +1,9 @@
+{
+  "templates": [
+    {"id":"hello","category":"Basics","name":"🐍 Hello, Python","description":"A clean first project with functions, loops, and formatted output.","entry":"/main.py","files":{"/main.py":"basics/hello.py"}},
+    {"id":"number-lab","category":"Data","name":"📊 Number Lab","description":"Statistics, random data, sorting, and a text-based report using the standard library.","entry":"/main.py","files":{"/main.py":"data/number-lab.py"}},
+    {"id":"csv-lab","category":"Data","name":"🧮 CSV Analyzer","description":"Read and analyze CSV data with Python's built-in csv module.","entry":"/main.py","files":{"/main.py":"data/csv-lab.py","/data/sales.csv":"data/sales.csv"}},
+    {"id":"clicker","category":"Graphics","name":"🎯 Canvas Clicker","description":"Interactive Python graphics demo. Click the target to score points.","entry":"/main.py","files":{"/main.py":"graphics/clicker.py"}},
+    {"id":"mandelbrot","category":"Graphics","name":"🌌 Mandelbrot Explorer","description":"Draw a colorful fractal into the n3xn graphics canvas using Python.","entry":"/main.py","files":{"/main.py":"graphics/mandelbrot.py"}}
+  ]
+}

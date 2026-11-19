@@ -52,7 +52,7 @@ function drawShape(msg){
 }
 setRuntimeHandlers({
  ready:msg=>{setStatus("Pyodide "+msg.version,"ready");log("CPython WebAssembly runtime ready.","ok");},
- stdout:msg=>log(msg.text,msg.level==="warn"?"warn":"out"),
+ stdout:msg=>log(msg.text,msg.level==="warn"?"warn":msg.level==="ok"?"ok":"out"),
  stderr:msg=>log(msg.text,"err"),
  clear:msg=>{ctx.fillStyle=msg.color||"#080f20";ctx.fillRect(0,0,canvas.width,canvas.height);},
  draw:drawShape,
@@ -126,8 +126,9 @@ $("console-send-btn").onclick=sendConsoleCommand;
 $("console-input").addEventListener("keydown",event=>{if(event.key==="Enter"){event.preventDefault();sendConsoleCommand();}});
 $("new-file-btn").onclick=()=>{const path=normalizePath(prompt("New project file path:","/src/module.py")||"");if(path==="/")return;if(files[path]){log("File already exists: "+path,"warn");return;}files[path]="# "+path.split("/").pop()+"\n";switchModel(path,files[path]);openFile(path);renderFiles();saveSoon();};
 $("import-btn").onclick=()=>$("file-input").click();
-$("file-input").onchange=e=>{for(const file of e.target.files)importFile(file);e.target.value="";};
+$("file-input").onchange=async e=>{for(const file of Array.from(e.target.files||[]))await importFile(file);e.target.value="";};
 $("export-btn").onclick=()=>{files[activeFile]=editor.getValue();downloadProject({files,entry});log("Project export created.","ok");};
+$("set-entry-btn").onclick=()=>{entry=activeFile;$("project-name").textContent=entry.split("/").pop();saveSoon();log("Run entry point set to "+entry,"ok");};
 $("packages-btn").onclick=()=>{
  $("dialog-title").textContent="Python packages";
  $("dialog-description").textContent="Install packages into this browser's Pyodide runtime. Popular Pyodide packages include numpy, pandas, matplotlib, scipy, pillow, sympy and scikit-learn. First install requires network access.";

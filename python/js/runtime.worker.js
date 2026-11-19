@@ -90,7 +90,7 @@ async function install(id,name){
     py.globals.set("_n3xn_pkg_name",pkg);
     let installMode="pyodide";
     try{await py.loadPackage(pkg);}
-    catch(_){installMode="micropip";await py.runPythonAsync("import micropip\\nawait micropip.install(_n3xn_pkg_name)");}
+    catch(_){installMode="micropip";await py.runPythonAsync("import micropip\nawait micropip.install(_n3xn_pkg_name)");}
     py.globals.delete("_n3xn_pkg_name");
     installedPackages.set(pkg,installMode);
     send("packageDone",{id,name:pkg,installMode});

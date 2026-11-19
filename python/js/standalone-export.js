@@ -5,9 +5,19 @@ async function pack(bytes){if(!("CompressionStream" in self))return{bytes,encodi
 async function getAsset(name){const r=await fetch(BASE+"__pyodide__/"+name);if(!r.ok)throw new Error("Missing Pyodide asset "+name+" ("+r.status+"). Warm the runtime online and retry.");return new Uint8Array(await r.arrayBuffer());}
 const safe=v=>JSON.stringify(v).replace(/</g,"\\u003c").replace(/>/g,"\\u003e").replace(/&/g,"\\u0026");
 export async function buildStandaloneHtml({files,entry,packages={},wheelAssets=[]}){
+ const wheelList=wheelAssets||[];
+ for(const [pkg,mode] of Object.entries(packages||{})){
+  const normalized=pkg.toLowerCase().replace(/[-_.]+/g,"-");
+  const match=wheelList.some(w=>{
+   const wheel=decodeURIComponent(w.name||"").toLowerCase().replace(/[-_.]+/g,"-");
+   const isPyodide=/cdn\\.jsdelivr\\.net\\/pyodide\\/v0\\.26\\.2\\/full\\//.test(w.url||"");
+   return wheel.startsWith(normalized+"-")&&(mode==="micropip"?!isPyodide:true);
+  });
+  if(!match)throw new Error("Could not find the captured wheel for installed package '"+pkg+"'. Reinstall it in this Studio session while online, then export again.");
+ }
  const assets=new Map();
  for(const name of CORE){const bytes=await getAsset(name);assets.set(name,{name,bytes,type:name.endsWith(".wasm")?"application/wasm":name.endsWith(".js")?"text/javascript":name.endsWith(".json")?"application/json":"application/octet-stream",url:BASE+"__pyodide__/"+name,wheel:false});}
- for(const w of wheelAssets||[]){if(w?.name&&w.bytes)assets.set(w.name,{name:w.name,bytes:new Uint8Array(w.bytes),type:w.type||"application/octet-stream",url:w.url||w.name,wheel:true});}
+ for(const w of wheelList){if(w?.name&&w.bytes)assets.set(w.name,{name:w.name,bytes:new Uint8Array(w.bytes),type:w.type||"application/octet-stream",url:w.url||w.name,wheel:true});}
  const encoded={};let rawBytes=0,packedBytes=0;
  for(const a of assets.values()){rawBytes+=a.bytes.length;const p=await pack(a.bytes);packedBytes+=p.bytes.length;encoded[a.name]={data:b64(p.bytes),encoding:p.encoding,type:a.type,url:a.url,wheel:a.wheel};}
  const bundle={assets:encoded,packages:packages||{},entry:entry||"/main.py",files:files||{}};

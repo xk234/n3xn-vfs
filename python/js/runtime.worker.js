@@ -1,5 +1,14 @@
 let py=null,clickHandler=null,baseURL="";
 const send=(type,data={})=>self.postMessage({type,...data});
+
+function releaseClickHandler(){
+  const previous=clickHandler;
+  clickHandler=null;
+  if(previous&&typeof previous.destroy==="function"){
+    try{previous.destroy();}catch(_){}
+  }
+}
+
 async function initialize(base){
   baseURL=base;
   try{
@@ -9,9 +18,22 @@ async function initialize(base){
       write:(text,level)=>send("stdout",{text:String(text),level:level||"out"}),
       clear:(color)=>send("clear",{color:color||"#080f20"}),
       draw:(kind,x,y,w,h,color,label)=>send("draw",{kind,x,y,w,h,color,label}),
-      draw_batch:(operations)=>{const converted=operations.toJs?operations.toJs():operations;if(operations.destroy)operations.destroy();send("drawBatch",{operations:converted});},
+      draw_batch:(operations)=>{
+        const converted=operations.toJs?operations.toJs({create_pyproxies:false}):operations;
+        if(operations.destroy)operations.destroy();
+        send("drawBatch",{operations:converted});
+      },
       show_html:(html)=>send("html",{html:String(html)}),
-      on_click:(callback)=>{clickHandler=callback;}
+      on_click:(callback)=>{
+        if(!callback||typeof callback!=="function")throw new TypeError("n3xn.on_click() expects a callable Python function.");
+        // Pyodide 0.26 automatically destroys temporary PyProxy arguments after
+        // the Python-to-JavaScript call returns. Keep our own reference because
+        // this callback is invoked later by a separate worker message.
+        const retained=typeof callback.copy==="function"?callback.copy():null;
+        if(!retained)throw new TypeError("Could not retain the Python click callback. Pass a normal Python function.");
+        releaseClickHandler();
+        clickHandler=retained;
+      }
     });
     send("ready",{version:py.version||"CPython / WebAssembly"});
   }catch(error){send("init-error",{message:error?.stack||String(error)});}
@@ -32,16 +54,18 @@ async function syncFiles(files){
   py.globals.set("_n3xn_project_root",root);
 }
 async function run(id,files,entry){
+  releaseClickHandler();
   try{
-    if(clickHandler&&typeof clickHandler.destroy==="function")clickHandler.destroy();
-    clickHandler=null;
     await syncFiles(files);
     const clean=cleanProjectPath(entry||"/main.py");
     const full="/home/pyodide/project/"+clean;
     py.globals.set("_n3xn_entry",full);
     await py.runPythonAsync("import os, sys, runpy\nos.chdir(_n3xn_project_root)\nsys.path.insert(0, _n3xn_project_root)\nrunpy.run_path(_n3xn_entry, run_name='__main__')");
     send("done",{id});
-  }catch(error){send("runError",{id,message:error?.stack||String(error)});}
+  }catch(error){
+    releaseClickHandler();
+    send("runError",{id,message:error?.stack||String(error)});
+  }
 }
 async function install(id,name){
   try{

@@ -10,7 +10,7 @@ export async function buildStandaloneHtml({files,entry,packages={},wheelAssets=[
   const normalized=pkg.toLowerCase().replace(/[-_.]+/g,"-");
   const match=wheelList.some(w=>{
    const wheel=decodeURIComponent(w.name||"").toLowerCase().replace(/[-_.]+/g,"-");
-   const isPyodide=/cdn\\.jsdelivr\\.net\\/pyodide\\/v0\\.26\\.2\\/full\\//.test(w.url||"");
+      const isPyodide=/cdn\.jsdelivr\.net\/pyodide\/v0\.26\.2\/full\//.test(w.url||"");
    return wheel.startsWith(normalized+"-")&&(mode==="micropip"?!isPyodide:true);
   });
   if(!match)throw new Error("Could not find the captured wheel for installed package '"+pkg+"'. Reinstall it in this Studio session while online, then export again.");

@@ -18,7 +18,7 @@ A standalone Python playground that lives beside Dreamland at `/python/`. It use
 - Import individual Python/text files or a complete `.n3py.json` project export.
 - Export the full project and its entry-file setting as `.n3py.json`.
 - Console output, Python REPL, graphics canvas, and sandboxed HTML preview.
-- The `n3xn` Python bridge currently provides `write(text, level)`, `clear(color)`, `draw(kind, x, y, width, height, color, label)`, `draw_batch(operations)`, `show_html(html)`, and `on_click(callback)`.
+- The `n3xn` Python bridge currently provides `write(text, level)`, `clear(color)`, `draw(kind, x, y, width, height, color, label)`, `draw_batch(operations)`, `show_html(html)`, and `on_click(callback)`. Click callbacks are retained explicitly by the worker and released when a new run replaces them or a run fails, preventing expired Pyodide borrowed-proxy errors.
 
 ## Demos
 

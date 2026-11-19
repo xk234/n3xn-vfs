@@ -36,7 +36,7 @@ export async function installPackage(name){
   return new Promise((resolve,reject)=>{
     const timer=setTimeout(()=>reject(new Error("Package installation timed out.")),120000);
     const prev=handlers.packageDone,prevErr=handlers.packageError;
-    handlers.packageDone=msg=>{if(msg.id!==id)return;clearTimeout(timer);handlers.packageDone=prev;resolve(msg);};
+    handlers.packageDone=msg=>{if(msg.id!==id)return;clearTimeout(timer);handlers.packageDone=prev;try{const saved=JSON.parse(localStorage.getItem("n3xn_python_packages_v1")||"{}");saved[msg.name]=msg.installMode||"pyodide";localStorage.setItem("n3xn_python_packages_v1",JSON.stringify(saved));}catch(_){}resolve(msg);};
     handlers.packageError=msg=>{if(msg.id!==id)return;clearTimeout(timer);handlers.packageError=prevErr;reject(new Error(msg.message||"Package installation failed"));};
     worker.postMessage({type:"install",id,name});
   });
@@ -53,3 +53,26 @@ export async function runConsole(code){
 }
 export function sendCanvasClick(x,y){worker?.postMessage({type:"click",x,y});}
 export function stopRuntime(){if(activeReject)activeReject(new Error("Execution stopped by user."));handlers.done=null;handlers.runError=null;if(worker)worker.terminate();worker=null;readyPromise=null;emit("stopped",{});}
+
+export async function exportRuntimeAssets(){
+  await boot();const id=++sequence;
+  const live=await new Promise((resolve,reject)=>{
+    const timer=setTimeout(()=>{handlers.exportAssets=previous;reject(new Error("Timed out collecting installed Python packages."));},30000);
+    const previous=handlers.exportAssets;
+    handlers.exportAssets=msg=>{if(msg.id!==id)return;clearTimeout(timer);handlers.exportAssets=previous;resolve(msg);};
+    worker.postMessage({type:"export-assets",id});
+  });
+  const assets=new Map((live.assets||[]).map(a=>[a.name,a]));
+  try{
+    const cache=await caches.open("n3xn-python-export-assets");
+    for(const request of await cache.keys()){
+      const response=await cache.match(request);if(!response)continue;
+      const name=decodeURIComponent(new URL(request.url).pathname.split("/").pop());
+      if(!assets.has(name))assets.set(name,{name,url:response.headers.get("X-N3XN-Original-URL")||request.url,type:response.headers.get("content-type")||"application/octet-stream",bytes:await response.arrayBuffer()});
+    }
+  }catch(_){}
+  let packages={};
+  try{packages=JSON.parse(localStorage.getItem("n3xn_python_packages_v1")||"{}");}catch(_){}
+  packages={...packages,...(live.packages||{})};
+  return {assets:[...assets.values()],packages};
+}

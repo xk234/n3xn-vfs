@@ -33,7 +33,8 @@ async function syncFiles(files){
 }
 async function run(id,files,entry){
   try{
-    if(clickHandler&&typeof clickHandler.destroy==="function")clickHandler.destroy();\n    clickHandler=null;
+    if(clickHandler&&typeof clickHandler.destroy==="function")clickHandler.destroy();
+    clickHandler=null;
     await syncFiles(files);
     const clean=cleanProjectPath(entry||"/main.py");
     const full="/home/pyodide/project/"+clean;

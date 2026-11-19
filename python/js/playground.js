@@ -56,6 +56,7 @@ setRuntimeHandlers({
  stderr:msg=>log(msg.text,"err"),
  clear:msg=>{ctx.fillStyle=msg.color||"#080f20";ctx.fillRect(0,0,canvas.width,canvas.height);},
  draw:drawShape,
+ drawBatch:msg=>{for(const op of msg.operations||[])drawShape({kind:op[0],x:op[1],y:op[2],w:op[3],h:op[4],color:op[5],label:op[6]});},
  html:msg=>{$("web-preview").srcdoc=msg.html;document.querySelector('[data-panel="preview-panel"]').click();},
  error:msg=>{setStatus("Runtime error","error");log(msg.message,"err");},
  stopped:()=>{setStatus("Stopped");$("stop-btn").disabled=true;log("Python worker stopped. Runtime will reload on next run.","system");},

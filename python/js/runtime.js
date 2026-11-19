@@ -12,7 +12,7 @@ function boot(){
       else if(msg.type==="init-error"){clearTimeout(timer);reject(new Error(msg.message||"Pyodide failed to initialize."));}
       else emit(msg.type,msg);
     };
-    worker.onerror=(event)=>{clearTimeout(timer);emit("error",{message:event.message||"Python worker crashed"});reject(new Error(event.message||"Python worker crashed"));};
+    worker.onerror=(event)=>{clearTimeout(timer);const error=new Error(event.message||"Python worker crashed");emit("error",{message:error.message});if(activeReject)activeReject(error);reject(error);};
   }).catch(error=>{if(worker){worker.terminate();worker=null;}readyPromise=null;throw error;});
   worker.postMessage({type:"init",base:BASE});
   return readyPromise;
@@ -22,7 +22,7 @@ export async function ensureRuntime(){return boot();}
 export async function runProject(files,entry){
   await boot();const id=++sequence;
   return new Promise((resolve,reject)=>{
-    const timer=setTimeout(()=>{if(worker){worker.terminate();worker=null;readyPromise=null;}activeReject=null;reject(new Error("Execution exceeded 60 seconds. The Python worker was stopped and can be restarted."));},60000);
+    const timer=setTimeout(()=>{if(worker){worker.terminate();worker=null;readyPromise=null;}activeReject=null;handlers.done=null;handlers.runError=null;reject(new Error("Execution exceeded 60 seconds. The Python worker was stopped and can be restarted."));},60000);
     activeReject=error=>{clearTimeout(timer);activeReject=null;reject(error);};
     const previous=handlers.done;
     handlers.done=(msg)=>{if(msg.id!==id)return;clearTimeout(timer);activeReject=null;handlers.done=previous;resolve(msg);};
@@ -52,4 +52,4 @@ export async function runConsole(code){
   });
 }
 export function sendCanvasClick(x,y){worker?.postMessage({type:"click",x,y});}
-export function stopRuntime(){if(activeReject)activeReject(new Error("Execution stopped by user."));if(worker)worker.terminate();worker=null;readyPromise=null;emit("stopped",{});}
+export function stopRuntime(){if(activeReject)activeReject(new Error("Execution stopped by user."));handlers.done=null;handlers.runError=null;if(worker)worker.terminate();worker=null;readyPromise=null;emit("stopped",{});}

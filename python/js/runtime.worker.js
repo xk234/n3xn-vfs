@@ -13,7 +13,7 @@ self.fetch=async(input,init)=>{
       const name=decodeURIComponent(new URL(url).pathname.split("/").pop());
       const type=response.headers.get("content-type")||"application/octet-stream";
       downloadedWheels.set(name,{name,url,type,bytes});
-      try{const cache=await caches.open("n3xn-python-export-assets");await cache.put("https://n3xn.invalid/__n3xn_wheels__/"+encodeURIComponent(name),new Response(bytes.slice(0),{headers:{"Content-Type":type}}));}catch(_){}
+      try{const cache=await caches.open("n3xn-python-export-assets");await cache.put(new URL("__export_wheels__/"+encodeURIComponent(name),baseURL).href,new Response(bytes.slice(0),{headers:{"Content-Type":type,"X-N3XN-Original-URL":url}}));}catch(_){}
     }catch(_){}
   }
   return response;

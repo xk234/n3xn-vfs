@@ -11,7 +11,9 @@ self.fetch=async(input,init)=>{
     try{
       const bytes=await response.clone().arrayBuffer();
       const name=decodeURIComponent(new URL(url).pathname.split("/").pop());
-      downloadedWheels.set(name,{name,url,type:response.headers.get("content-type")||"application/octet-stream",bytes});
+      const type=response.headers.get("content-type")||"application/octet-stream";
+      downloadedWheels.set(name,{name,url,type,bytes});
+      try{const cache=await caches.open("n3xn-python-export-assets");await cache.put("https://n3xn.invalid/__n3xn_wheels__/"+encodeURIComponent(name),new Response(bytes.slice(0),{headers:{"Content-Type":type}}));}catch(_){}
     }catch(_){}
   }
   return response;

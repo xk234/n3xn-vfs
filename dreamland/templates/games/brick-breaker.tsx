@@ -1,6 +1,6 @@
 import { css, type Component } from "dreamland/core";
 
-export const App: Component<{}, { score: number; lives: number; msg: string }> = function () {
+export const App: Component<{}, {}, { score: number; lives: number; msg: string }> = function (cx) {
   this.score = 0;
   this.lives = 3;
   this.msg = "Move mouse or touch to steer paddle";
@@ -95,8 +95,8 @@ export const App: Component<{}, { score: number; lives: number; msg: string }> =
     raf = requestAnimationFrame(frame);
   };
 
-  this.cx.mount = () => {
-    canvas = this.root.querySelector("canvas");
+  cx.mount = () => {
+    canvas = cx.root.querySelector("canvas");
     if (!canvas) return;
     restart();
     const move = (clientX: number) => {

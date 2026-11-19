@@ -8,14 +8,17 @@ export {};
 
 const DREAMLAND_FALLBACK_DTS = `
 declare module "dreamland/core" {
-  export type ComponentContext<State = any> = {
-    state: State;
+  export type ComponentContext<Props = {}, Private = {}, Public = {}> = {
+    state: Props & Private & Public;
+    children?: any;
+    root: HTMLElement;
     mount?: () => void;
     init?: () => void;
     load?: () => void;
   };
-  export type Component<Props = {}, This = {}> = (
-    this: Props & This & { root: HTMLElement; cx: ComponentContext<Props & This> }
+  export type Component<Props = {}, Private = {}, Public = {}> = (
+    this: Props & Private & Public,
+    cx: ComponentContext<Props, Private, Public>
   ) => Node | null | undefined;
   export function h(tag: any, props: any, ...children: any[]): Node;
   export namespace h {

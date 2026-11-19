@@ -1,4 +1,4 @@
-const CDN = "https://cdn.jsdelivr.net/npm/monaco-editor@0.52.0/min";
+const CDN = new URL("../__cdn__/monaco/npm/monaco-editor@0.52.0/min", import.meta.url).href;
 let editor;
 const themes = {
   midnight:{base:"vs-dark",background:"#0b1220",foreground:"#dbeafe",line:"#1d2a40",accent:"#a78bfa"},

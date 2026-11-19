@@ -24,7 +24,7 @@
     <div class="side-footer"><span id="file-count">0 files</span><span id="save-state">Saved</span></div>
   </aside>
   <section class="editor-pane">
-    <div class="editor-heading"><div><span class="python-dot">●</span><span id="active-file">main.py</span></div><div class="editor-actions"><button id="format-btn" title="Format Python">Format</button><button id="editor-fullscreen" title="Toggle editor focus">⛶</button></div></div>
+    <div class="editor-heading"><div><span class="python-dot">●</span><span id="active-file">main.py</span></div><div class="editor-actions"><button id="set-entry-btn" title="Use this file as the run entry point">Set as entry</button><button id="format-btn" title="Format Python">Format</button><button id="editor-fullscreen" title="Toggle editor focus">⛶</button></div></div>
     <div id="monaco-root"></div>
     <div class="editor-status"><span id="language-label">Python 3 · Pyodide</span><span id="cursor-label">Ln 1, Col 1</span><span id="encoding-label">UTF-8</span></div>
   </section>
@@ -36,6 +36,6 @@
   </section>
 </main>
 <div id="dialog" class="dialog hidden"><div class="dialog-card"><div class="dialog-title"><b id="dialog-title">Packages</b><button id="dialog-close">×</button></div><p id="dialog-description"></p><div id="dialog-content"></div><div class="dialog-actions"><button id="dialog-cancel">Close</button><button id="dialog-confirm" class="primary">Install</button></div></div></div>
-<input id="file-input" type="file" accept=".py,.json,.n3py.json,.txt" hidden>
+<input id="file-input" type="file" accept=".py,.json,.n3py.json,.txt,.csv" multiple hidden>
 <script type="module" src="./js/playground.js"></script>
 </body></html>

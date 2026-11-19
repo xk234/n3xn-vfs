@@ -1,14 +1,14 @@
-const VERSION="n3xn-python-shell-v1";
+const VERSION="n3xn-python-shell-v2";
 const PYODIDE_CACHE="n3xn-python-pyodide-0262";
 const BASE=new URL("./",self.location.href);
 const PY_PREFIX=new URL("__pyodide__/",BASE).pathname;
 const PY_REMOTE="https://cdn.jsdelivr.net/pyodide/v0.26.2/full/";
 const MONACO_PREFIX=new URL("__cdn__/monaco/",BASE).pathname;
 const MONACO_CACHE="n3xn-python-monaco-0520";
-const SHELL=["./","./index.html","./playground.html","./playground.css","./js/vfs.js","./js/monaco.js","./js/runtime.js","./js/runtime.worker.js","./js/playground.js","./templates/index.json","./templates/basics/hello.py","./templates/data/number-lab.py","./templates/data/csv-lab.py","./templates/data/sales.csv","./templates/graphics/clicker.py","./templates/graphics/mandelbrot.py","./sw.js"];
+const SHELL=["./","./index.html","./playground.html","./playground.css","./js/vfs.js","./js/monaco.js","./js/runtime.js","./js/runtime.worker.js","./js/standalone-export.js","./js/playground.js","./templates/index.json","./templates/basics/hello.py","./templates/data/number-lab.py","./templates/data/csv-lab.py","./templates/data/sales.csv","./templates/graphics/clicker.py","./templates/graphics/mandelbrot.py","./sw.js"];
 const CORE=["pyodide.js","pyodide.asm.js","pyodide.asm.wasm","pyodide-lock.json","python_stdlib.zip","pyodide_py.tar"];
 self.addEventListener("install",event=>event.waitUntil((async()=>{const cache=await caches.open(VERSION);await Promise.allSettled(SHELL.map(async path=>{const url=new URL(path,BASE).href;const res=await fetch(url);if(res.ok)await cache.put(url,res);}));await self.skipWaiting();})()));
-self.addEventListener("activate",event=>event.waitUntil((async()=>{const keys=await caches.keys();await Promise.all(keys.filter(k=>k.startsWith("n3xn-python-")&&k!==VERSION&&k!==PYODIDE_CACHE).map(k=>caches.delete(k)));await self.clients.claim();})()));
+self.addEventListener("activate",event=>event.waitUntil((async()=>{const keys=await caches.keys();await Promise.all(keys.filter(k=>k.startsWith("n3xn-python-")&&k!==VERSION&&k!==PYODIDE_CACHE&&k!=="n3xn-python-export-assets").map(k=>caches.delete(k)));await self.clients.claim();})()));
 async function pyodideFetch(request,url){
  const cache=await caches.open(PYODIDE_CACHE),hit=await cache.match(request);if(hit)return hit;
  const relative=url.pathname.slice(PY_PREFIX.length)+url.search;

@@ -68,7 +68,7 @@ export async function exportRuntimeAssets(){
     for(const request of await cache.keys()){
       const response=await cache.match(request);if(!response)continue;
       const name=decodeURIComponent(new URL(request.url).pathname.split("/").pop());
-      if(!assets.has(name))assets.set(name,{name,url:request.url,type:response.headers.get("content-type")||"application/octet-stream",bytes:await response.arrayBuffer()});
+      if(!assets.has(name))assets.set(name,{name,url:response.headers.get("X-N3XN-Original-URL")||request.url,type:response.headers.get("content-type")||"application/octet-stream",bytes:await response.arrayBuffer()});
     }
   }catch(_){}
   let packages={};

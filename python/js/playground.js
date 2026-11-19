@@ -1,6 +1,6 @@
 import {loadProject,saveProject,fetchManifest,fetchTemplate,normalizePath,downloadProject} from "./vfs.js";
 import {initMonaco,switchModel,removeModel,setEditorTheme,setPythonMarkers,getEditor,clearPythonMarkers} from "./monaco.js";
-import {setRuntimeHandlers,ensureRuntime,runProject,installPackage,stopRuntime,sendCanvasClick} from "./runtime.js";
+import {setRuntimeHandlers,ensureRuntime,runProject,runConsole,installPackage,stopRuntime,sendCanvasClick} from "./runtime.js";
 const $=id=>document.getElementById(id);
 const BASE=new URL("../",import.meta.url).href;
 const status=$("runtime-status"),consoleOut=$("console-out"),fileList=$("file-list"),canvas=$("graphics-canvas"),ctx=canvas.getContext("2d");
@@ -109,7 +109,7 @@ async function init(){
   if(!files[entry])entry=Object.keys(files)[0];
   for(const tpl of templates){const option=document.createElement("option");option.value=tpl.id;option.textContent="["+tpl.category+"] "+tpl.name;option.title=tpl.description||"";$("template-select").appendChild(option);}
   $("template-select").onchange=()=>loadTemplate(templates.find(t=>t.id===$("template-select").value));
-  editor=await initMonaco({container:$("monaco-root"),files,initialFile:entry,onChange:onEditorChange,onRun:run,onCursor:pos=>$("cursor-label").textContent="Ln "+pos.lineNumber+", Col "+pos.column});
+  editor=await initMonaco({container:$("monaco-root"),files,initialFile:entry,onChange:onEditorChange,onRun:run,onCursor:pos=>$("cursor-label").textContent="Ln "+pos.lineNumber+", Col "+pos.column});\n  setEditorTheme(savedTheme);
   openFile(entry);renderFiles();setStatus("Editor ready","ready");log("Python project restored. Press Run to start the WebAssembly runtime.","system");
  }catch(error){setStatus("Startup failed","error");log(error.stack||error.message,"err");}
 }

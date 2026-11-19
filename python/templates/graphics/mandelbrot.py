@@ -1,9 +1,10 @@
 """A compact Mandelbrot fractal drawn with Python."""
-from n3xn import clear, draw, write
+from n3xn import clear, draw, draw_batch, write
 
-WIDTH, HEIGHT = 640, 360
+WIDTH, HEIGHT = 160, 90
 clear("#050816")
 draw("text", 18, 24, 0, 0, "#c4b5fd", "MANDELBROT / PYTHON WASM")
+operations = []
 for py in range(HEIGHT):
     cy = (py - HEIGHT / 2) * 2.8 / HEIGHT
     for px in range(WIDTH):
@@ -16,5 +17,6 @@ for py in range(HEIGHT):
         if iteration < 28:
             shade = int(iteration * 9) % 255
             color = "#%02x%02x%02x" % (30 + shade // 2, 30 + shade // 3, 100 + shade // 2)
-            draw("rect", px, py, 1, 1, color)
+            operations.append(("rect", px * 4, py * 4 + 30, 4, 4, color, ""))
+draw_batch(operations)
 write("Fractal rendered with pure Python loops.", "ok")

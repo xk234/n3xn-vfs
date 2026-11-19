@@ -1,7 +1,7 @@
 let py=null,clickHandler=null,baseURL="";
 const send=(type,data={})=>self.postMessage({type,...data});
 const downloadedWheels=new Map();
-const installedPackages=new Set();
+const installedPackages=new Map();
 const nativeFetch=self.fetch.bind(self);
 self.fetch=async(input,init)=>{
   const response=await nativeFetch(input,init);
@@ -103,7 +103,7 @@ self.onmessage=async(event)=>{
   if(msg.type==="export-assets"){
     const assets=[...downloadedWheels.values()].map(asset=>({name:asset.name,url:asset.url,type:asset.type,bytes:asset.bytes.slice(0)}));
     const transfer=assets.map(asset=>asset.bytes);
-    self.postMessage({type:"exportAssets",id:msg.id,assets,packages:[...installedPackages]},transfer);
+    self.postMessage({type:"exportAssets",id:msg.id,assets,packages:Object.fromEntries(installedPackages)},transfer);
     return;
   }
   if(msg.type==="repl"){

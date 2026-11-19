@@ -12,7 +12,7 @@
 [![Platform](https://img.shields.io/badge/platform-browser-0ea5e9?style=for-the-badge)](https://github.com/xk234/n3xn-vfs)
 [![Deploy](https://img.shields.io/badge/deploy-static%20hosting-f59e0b?style=for-the-badge)](#-deployment)
 
-[**Repository**](https://github.com/xk234/n3xn-vfs) · [**Report a bug**](https://github.com/xk234/n3xn-vfs/issues) · [**Browse source**](https://github.com/xk234/n3xn-vfs/tree/main)
+[**Repository**](https://github.com/xk234/n3xn-vfs) · [**Python Studio**](python/) · [**Dreamland Studio**](dreamland/) · [**Report a bug**](https://github.com/xk234/n3xn-vfs/issues) · [**Browse source**](https://github.com/xk234/n3xn-vfs/tree/main)
 
 </div>
 

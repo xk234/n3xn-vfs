@@ -13,7 +13,7 @@ function boot(){
       else emit(msg.type,msg);
     };
     worker.onerror=(event)=>{clearTimeout(timer);emit("error",{message:event.message||"Python worker crashed"});reject(new Error(event.message||"Python worker crashed"));};
-  }).catch(error=>{readyPromise=null;throw error;});
+  }).catch(error=>{if(worker){worker.terminate();worker=null;}readyPromise=null;throw error;});
   worker.postMessage({type:"init",base:BASE});
   return readyPromise;
 }

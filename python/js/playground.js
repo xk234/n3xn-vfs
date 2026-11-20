@@ -75,7 +75,7 @@ setRuntimeHandlers({
  draw:drawShape,
  drawBatch:msg=>{for(const op of msg.operations||[])drawShape({kind:op[0],x:op[1],y:op[2],w:op[3],h:op[4],color:op[5],label:op[6]});},
  html:msg=>{$("web-preview").srcdoc=msg.html;document.querySelector('[data-panel="preview-panel"]').click();},
- gameLoop:msg=>{if(msg.enabled){startGameLoop();document.querySelector('[data-panel="graphics-panel"]').click();}else stopGameLoop();},
+ gameLoop:msg=>{if(msg.enabled){startGameLoop();$("graphics-hint").textContent="Game controls: Space / Up / W / click · P pause · R restart · C practice · 1–3 levels";document.querySelector('[data-panel="graphics-panel"]').click();}else{stopGameLoop();$("graphics-hint").textContent="Python demos can draw here with the n3xn graphics bridge."; }},
  gameInput:msg=>{gameInputActive=!!msg.enabled;},
  error:msg=>{setStatus("Runtime error","error");log(msg.message,"err");},
  stopped:()=>{stopGameLoop();gameInputActive=false;setStatus("Stopped");$("stop-btn").disabled=true;log("Python worker stopped. Runtime will reload on next run.","system");},
@@ -136,6 +136,7 @@ async function init(){
 $("run-btn").onclick=run;
 $("stop-btn").onclick=()=>{stopRuntime();stopGameLoop();gameInputActive=false;$("run-btn").disabled=false;$("stop-btn").disabled=true;};
 $("clear-output-btn").onclick=clearOutput;
+$("game-fullscreen").onclick=()=>{if(document.fullscreenElement){document.exitFullscreen?.();}else{canvas.requestFullscreen?.().catch(error=>log("Fullscreen unavailable: "+error.message,"warn"));}};
 async function sendConsoleCommand(){
  const input=$("console-input"),code=input.value.trim();if(!code)return;input.value="";log(">>> "+code,"system");
  try{const result=await runConsole(code);if(result)log(result,"ok");}catch(error){log(error.message||String(error),"err");}

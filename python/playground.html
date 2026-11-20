@@ -12,7 +12,7 @@
     <span id="runtime-status" class="status"><i></i> Starting…</span>
     <select id="template-select" title="Open a demo project"></select>
     <select id="theme-select" title="Editor theme"><option value="midnight">Midnight</option><option value="dracula">Dracula</option><option value="nord">Nord</option><option value="monokai">Monokai</option><option value="light">Light</option></select>
-    <button id="new-file-btn">＋ File</button><button id="import-btn">Import</button><button id="export-btn">Export project</button><button id="export-html-btn" title="Bundle this Python project into a standalone HTML file">Export single HTML</button>
+    <button id="new-file-btn">＋ File</button><button id="import-btn">Import files</button><button id="import-folder-btn">Import folder</button><button id="export-btn">Export project</button><button id="export-html-btn" title="Bundle this Python project into a standalone HTML file">Export single HTML</button>
     <button id="packages-btn">Packages</button><button id="warm-btn">Warm offline</button>
     <button id="stop-btn" class="danger" disabled>■ Stop</button><button id="run-btn" class="primary">▶ Run <kbd>Ctrl ↵</kbd></button>
   </div>
@@ -36,6 +36,6 @@
   </section>
 </main>
 <div id="dialog" class="dialog hidden"><div class="dialog-card"><div class="dialog-title"><b id="dialog-title">Packages</b><button id="dialog-close">×</button></div><p id="dialog-description"></p><div id="dialog-content"></div><div class="dialog-actions"><button id="dialog-cancel">Close</button><button id="dialog-confirm" class="primary">Install</button></div></div></div>
-<input id="file-input" type="file" accept="*/*" multiple hidden>
+<input id="file-input" type="file" accept="*/*" multiple hidden><input id="folder-input" type="file" webkitdirectory multiple hidden>
 <script type="module" src="./js/playground.js"></script>
 </body></html>

@@ -421,7 +421,8 @@ class GeometryGame:
                 else:
                     corners = [(sx+2,GROUND_Y),(sx+obj["w"]*0.5,GROUND_Y-obj["h"]),(sx+obj["w"]-2,GROUND_Y)]
                 for i in range(len(corners)):
-                    self._line(ops, *corners[i], *corners[(i+1)%len(corners)], AMBER)
+                    p1, p2 = corners[i], corners[(i+1)%len(corners)]
+                    self._line(ops, p1[0], p1[1], p2[0], p2[1], AMBER)
 
         self.effects.render(ops)
         # HUD.

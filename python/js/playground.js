@@ -106,7 +106,7 @@ async function run(){
   const message=error.message||String(error);log(message,"err");setPythonMarkers(entry,message);
  }finally{$("run-btn").disabled=false;$("stop-btn").disabled=true;}
 }
-async function importFile(file){
+async function importFile(file,relativePath=file.name){
  try{
   const decodeUTF8=async source=>new TextDecoder("utf-8",{fatal:true}).decode(await source.arrayBuffer());
   if(file.name.endsWith(".n3py.json")){
@@ -114,7 +114,7 @@ async function importFile(file){
    if(data.format!=="n3xn-python-project"||!data.files)throw new Error("Not a valid n3xn Python project export.");
    files=data.files;entry=data.entry||"/main.py";
   }else{
-   const path=normalizePath("/"+file.name);
+   const path=normalizePath("/"+relativePath.replace(/\\/g,"/"));
    const textExtensions=/\.(py|txt|csv|json|toml|ya?ml|md|html?|css|js|svg|xml|ini|cfg|tsv)$/i;
    if(textExtensions.test(file.name)){files[path]=await decodeUTF8(file);}
    else{const bytes=new Uint8Array(await file.arrayBuffer());let binary="";for(let i=0;i<bytes.length;i+=32768)binary+=String.fromCharCode(...bytes.subarray(i,i+32768));files[path]={__n3xn_binary__:true,mime:file.type||"application/octet-stream",base64:btoa(binary)};}
@@ -158,7 +158,9 @@ $("console-send-btn").onclick=sendConsoleCommand;
 $("console-input").addEventListener("keydown",event=>{if(event.key==="Enter"){event.preventDefault();sendConsoleCommand();}});
 $("new-file-btn").onclick=()=>{const path=normalizePath(prompt("New project file path:","/src/module.py")||"");if(path==="/")return;if(files[path]){log("File already exists: "+path,"warn");return;}files[path]="# "+path.split("/").pop()+"\n";switchModel(path,files[path]);openFile(path);renderFiles();saveSoon();};
 $("import-btn").onclick=()=>$("file-input").click();
+$("import-folder-btn").onclick=()=>$("folder-input").click();
 $("file-input").onchange=async e=>{for(const file of Array.from(e.target.files||[]))await importFile(file);e.target.value="";};
+$("folder-input").onchange=async e=>{for(const file of Array.from(e.target.files||[]))await importFile(file,file.webkitRelativePath||file.name);e.target.value="";};
 $("export-btn").onclick=()=>{files[activeFile]=editor.getValue();downloadProject({files,entry});log("Project export created.","ok");};
 $("export-html-btn").onclick=async()=>{files[activeFile]=editor.getValue();$("export-html-btn").disabled=true;try{await exportSingleHTML({files,entry,log});}catch(error){log("Single-file export failed: "+(error.message||error),"err");}finally{$("export-html-btn").disabled=false;}};
 $("set-entry-btn").onclick=()=>{entry=activeFile;$("project-name").textContent=entry.split("/").pop();saveSoon();log("Run entry point set to "+entry,"ok");};

@@ -1,6 +1,7 @@
 import {loadProject,saveProject,fetchManifest,fetchTemplate,normalizePath,downloadProject} from "./vfs.js";
 import {initMonaco,switchModel,removeModel,setEditorTheme,setPythonMarkers,getEditor,clearPythonMarkers} from "./monaco.js";
 import {setRuntimeHandlers,ensureRuntime,runProject,runConsole,installPackage,stopRuntime,sendCanvasClick,sendFrame,sendKey} from "./runtime.js";
+import {unlockAudio,playGameSound} from "./audio.js";
 const $=id=>document.getElementById(id);
 const BASE=new URL("../",import.meta.url).href;
 const status=$("runtime-status"),consoleOut=$("console-out"),fileList=$("file-list"),canvas=$("graphics-canvas"),ctx=canvas.getContext("2d");
@@ -67,6 +68,7 @@ function startGameLoop(){
 }
 setRuntimeHandlers({
  ready:msg=>{setStatus("Pyodide "+msg.version,"ready");log("CPython WebAssembly runtime ready.","ok");},
+ sound:msg=>playGameSound(msg.kind),
  stdout:msg=>log(msg.text,msg.level==="warn"?"warn":msg.level==="ok"?"ok":"out"),
  stderr:msg=>log(msg.text,"err"),
  clear:msg=>{ctx.fillStyle=msg.color||"#080f20";ctx.fillRect(0,0,canvas.width,canvas.height);},
@@ -169,11 +171,12 @@ const savedTheme=localStorage.getItem("n3xn_python_theme")||"midnight";$("theme-
 document.querySelectorAll(".tab").forEach(tab=>tab.onclick=()=>{document.querySelectorAll(".tab").forEach(t=>t.classList.toggle("active",t===tab));document.querySelectorAll(".output-panel").forEach(p=>p.classList.toggle("active",p.id===tab.dataset.panel));});
 $("editor-fullscreen").onclick=()=>document.querySelector(".editor-pane").classList.toggle("focus");
 $("format-btn").onclick=()=>{const model=editor.getModel();const actions=editor.getActions();const action=actions.find(a=>a.id==="editor.action.formatDocument");if(action)action.run();else log("No Python formatter is installed. Install black or autopep8 to format from Python.","warn");};
-canvas.addEventListener("click",event=>{const rect=canvas.getBoundingClientRect();sendCanvasClick((event.clientX-rect.left)*canvas.width/rect.width,(event.clientY-rect.top)*canvas.height/rect.height);});
+canvas.addEventListener("click",event=>{unlockAudio();const rect=canvas.getBoundingClientRect();sendCanvasClick((event.clientX-rect.left)*canvas.width/rect.width,(event.clientY-rect.top)*canvas.height/rect.height);});
 window.addEventListener("keydown",event=>{
  const target=event.target;
  if(target?.closest?.(".monaco-editor")||["INPUT","TEXTAREA","SELECT"].includes(target?.tagName))return;
  if(gameInputActive){
+  unlockAudio();
   const key=event.key.toLowerCase();
   if([" ","arrowup","w","r","p","c","escape","1","2","3"].includes(key)){event.preventDefault();sendKey(event.key,event.repeat?false:true);}
  }

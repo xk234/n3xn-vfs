@@ -15,7 +15,7 @@ A standalone Python playground that lives beside Dreamland at `/python/`. It use
 
 - Monaco editor with Python syntax highlighting, completions, multiple files, and editor themes.
 - IndexedDB project persistence with a localStorage fallback.
-- Import Python/text files, binary assets (images, audio, fonts, data), or a complete `.n3py.json` project export.
+- Import individual files or whole folders, preserving relative paths for Python source, text, binary assets (images, audio, fonts, data), or a complete `.n3py.json` project export.
 - Export the full project and its entry-file setting as `.n3py.json`.
 - Export a compressed, self-contained `.html` with the Pyodide 0.26.2 runtime, detected Pyodide package dependencies, project source, and imported binary assets embedded. The standalone output is designed to run from `file:///` without a server.
 - Fullscreen controls are available for the graphics/game area, Python terminal, and HTML preview.

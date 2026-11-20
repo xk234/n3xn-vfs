@@ -64,3 +64,12 @@ This is an original, self-contained platformer demo inspired by one-button rhyth
 ## Notes and current boundaries
 
 This is a browser-hosted CPython environment, not a native Linux process. Native extensions must have compatible Pyodide wheels; arbitrary system packages, subprocesses, native binaries, and unrestricted OS access are not provided. Worker execution has a 60-second guard. The canvas bridge is a small graphics API rather than a full Pygame or SDL implementation. Offline operation requires a successful initial runtime download and sufficient browser cache storage.
+
+
+## Games development
+
+The template picker includes a **Games** category. The featured **Geometry Run — Python Studio** project is a modular multi-file platform game in `templates/games/geometry_dash/`.
+
+Its files separate configuration, hand-authored level patterns, particle effects, and the game engine. It includes three original levels, automatic forward movement, precise jumping, spikes and blocks, jump pads and orbs, practice checkpoints, a progress HUD, particles, and synthesized sound effects. Controls: Space/Up/W/click to jump, P/Escape to pause, R to restart, C to toggle practice, and 1–3 to choose a level from the title screen.
+
+The game bridge now includes `n3xn.play_sound(kind)`; audio is generated locally with Web Audio after the first user gesture. No external audio files or third-party game packages are required.

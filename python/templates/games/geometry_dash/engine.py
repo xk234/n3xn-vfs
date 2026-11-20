@@ -74,6 +74,9 @@ class GeometryGame:
         if self.practice and self.checkpoints:
             self.distance = self.checkpoints[-1]
             self.last_checkpoint = self.distance
+            for obj in self.objects:
+                if obj["kind"] in ("pad", "orb") and obj["x"] >= self.distance:
+                    obj["used"] = False
             self._reset_player()
             self.state = "playing"
             self.paused = False
@@ -212,8 +215,17 @@ class GeometryGame:
                 self._die()
                 return
         if self.practice and self.distance - self.last_checkpoint >= 650:
-            self.last_checkpoint = int(self.distance // 650) * 650
-            self.checkpoints.append(self.last_checkpoint)
+            checkpoint = int(self.distance // 650) * 650
+            hazards = [o for o in self.objects if o["kind"] in ("spike", "block")]
+            previous_end = max([o["x"] + o["w"] for o in hazards if o["x"] + o["w"] <= checkpoint] or [0])
+            next_start = min([o["x"] for o in hazards if o["x"] >= checkpoint] or [self.level["length"]])
+            safe_low, safe_high = previous_end + 80, next_start - 110
+            if safe_low <= safe_high:
+                checkpoint = min(max(checkpoint, safe_low), safe_high)
+            else:
+                checkpoint = max(self.last_checkpoint + 260, next_start - 180)
+            self.last_checkpoint = checkpoint
+            self.checkpoints.append(checkpoint)
             self.effects.burst(PLAYER_X + 12, GROUND_Y - 8, GREEN, 14, 110)
             play_sound("checkpoint")
             self.message = "CHECKPOINT"

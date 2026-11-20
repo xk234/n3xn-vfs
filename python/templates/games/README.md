@@ -19,7 +19,7 @@ Project files in the template:
 - Three original levels with different colors, speeds, obstacle density, jump pads, and timed jump orbs.
 - Automatic forward movement and one-button jumping.
 - Jump buffering, coyote-time tolerance, sub-stepped physics, cube rotation.
-- Spikes and blocks, jump pads, jump orbs, collision, death burst, particles, and trails.
+- Spikes and blocks, jump pads, jump orbs, collectible coins, collision, death burst, particles, and trails.
 - Progress percentage, attempts, per-level best progress.
 - Practice mode with automatic checkpoints.
 - Pause, restart, title screen, level selection, and completion flow.

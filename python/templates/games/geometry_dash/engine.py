@@ -27,12 +27,6 @@ class GeometryGame:
         self.elapsed = 0.0
         self.checkpoints = []
         self.last_checkpoint = 0.0
-        self.coins = 0
-        for obj in self.objects:
-            if obj["kind"] in ("pad", "orb"):
-                obj["used"] = False
-            if obj["kind"] == "coin":
-                obj["collected"] = False
         self.death_timer = 0.0
         self.complete_timer = 0.0
         self.level = LEVELS[0]
@@ -64,9 +58,12 @@ class GeometryGame:
         self.camera = 0.0
         self.checkpoints = []
         self.last_checkpoint = 0.0
+        self.coins = 0
         for obj in self.objects:
             if obj["kind"] in ("pad", "orb"):
                 obj["used"] = False
+            if obj["kind"] == "coin":
+                obj["collected"] = False
         self.death_timer = 0.0
         self.complete_timer = 0.0
         self.effects = Effects()

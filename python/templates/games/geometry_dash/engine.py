@@ -10,6 +10,7 @@ class GeometryGame:
     def __init__(self):
         self.level_index = 0
         self.practice = False
+        self.debug_hitboxes = False
         self.attempt = 0
         self.coins = 0
         self.checkpoint_coins = 0
@@ -122,6 +123,10 @@ class GeometryGame:
                     play_sound("pause" if self.paused else "resume")
             elif key == "r":
                 self.restart()
+            elif key == "h":
+                self.debug_hitboxes = not self.debug_hitboxes
+                self.message = "HITBOX DEBUG ON" if self.debug_hitboxes else "HITBOX DEBUG OFF"
+                self.message_timer = 1.6
             elif key == "c":
                 self.practice = not self.practice
                 self.message = "PRACTICE MODE ON" if self.practice else "PRACTICE MODE OFF"
@@ -397,6 +402,27 @@ class GeometryGame:
             self._rect(ops, px + 8, py + 8, 4, 4, "#0b1220")
             self._rect(ops, px + 18, py + 8, 4, 4, "#0b1220")
 
+        if self.debug_hitboxes:
+            # Red = player collision box; amber = obstacle collision geometry.
+            l, r = PLAYER_X + 3.5, PLAYER_X + PLAYER_SIZE - 3.5
+            t, b = self.player_y + 3.5, self.player_y + PLAYER_SIZE - 2.5
+            self._line(ops, l, t, r, t, RED)
+            self._line(ops, r, t, r, b, RED)
+            self._line(ops, r, b, l, b, RED)
+            self._line(ops, l, b, l, t, RED)
+            for obj in self.objects:
+                sx = obj["x"] - self.distance + PLAYER_X
+                if sx < -50 or sx > WIDTH + 50 or obj["kind"] not in ("spike", "block"):
+                    continue
+                if obj["kind"] == "block":
+                    x1, x2 = sx + 2, sx + obj["w"] - 2
+                    y1, y2 = GROUND_Y - obj["h"] + 2, GROUND_Y
+                    corners = [(x1,y1),(x2,y1),(x2,y2),(x1,y2)]
+                else:
+                    corners = [(sx+2,GROUND_Y),(sx+obj["w"]*0.5,GROUND_Y-obj["h"]),(sx+obj["w"]-2,GROUND_Y)]
+                for i in range(len(corners)):
+                    self._line(ops, *corners[i], *corners[(i+1)%len(corners)], AMBER)
+
         self.effects.render(ops)
         # HUD.
         self._rect(ops, 14, 12, 612, 38, "#0b1524")
@@ -410,6 +436,8 @@ class GeometryGame:
         self._text(ops, 520, 66, "BEST " + str(self.best[self.level_index]) + "%", MUTED)
         if self.practice:
             self._text(ops, 270, 66, "PRACTICE", GREEN)
+        if self.debug_hitboxes:
+            self._text(ops, 270, 88, "HITBOX DEBUG", RED)
 
         if self.state == "menu":
             self._rect(ops, 90, 83, 460, 178, "#0b1728")

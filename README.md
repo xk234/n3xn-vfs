@@ -454,6 +454,14 @@ Example:
 
 ---
 
+## 🎮 Python game development
+
+The standalone **Python Studio** at `/python/` now includes a dedicated **Games** demo category. The first playable project is **Geometry Dash: Python Edition**, an original single-player obstacle platformer with keyboard/mouse controls, frame updates, collision, pause/restart, and level progress.
+
+Game development notes and the shared Python graphics/input API are documented in [Python Games](python/templates/games/README.md). The current runtime supports local single-player games; multiplayer demos will be added only with an actual synchronization and transport layer (such as a configured WSS relay), not simulated player labels.
+
+---
+
 ## 🌐 The .n3-site format
 
 **.n3-site** is n3xn's multi-file HTML format. It allows a VFS HTML document to reference other VFS files as scripts, stylesheets, module scripts, and links.

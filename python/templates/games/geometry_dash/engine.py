@@ -1,0 +1,332 @@
+"""Core game state, physics, collision, camera, and rendering."""
+import math
+import random
+from .config import *
+from .levels import LEVELS, build_objects
+from .effects import Effects
+
+class GeometryGame:
+    def __init__(self):
+        self.level_index = 0
+        self.practice = False
+        self.attempt = 0
+        self.best = [0 for _ in LEVELS]
+        self.effects = Effects()
+        self.keys = set()
+        self.state = "menu"
+        self.paused = False
+        self.camera = 0.0
+        self.player_y = float(GROUND_Y - PLAYER_SIZE)
+        self.player_vy = 0.0
+        self.rotation = 0.0
+        self.jump_buffer = 0.0
+        self.coyote = 0.0
+        self.distance = 0.0
+        self.elapsed = 0.0
+        self.checkpoints = []
+        self.last_checkpoint = 0.0
+        self.death_timer = 0.0
+        self.complete_timer = 0.0
+        self.level = LEVELS[0]
+        self.objects = build_objects(self.level)
+        self.message_timer = 0.0
+        self.message = "PRESS SPACE OR CLICK TO START"
+        self._reset_player()
+
+    def _reset_player(self):
+        self.player_y = float(GROUND_Y - PLAYER_SIZE)
+        self.player_vy = 0.0
+        self.rotation = 0.0
+        self.jump_buffer = 0.0
+        self.coyote = 0.0
+
+    def select_level(self, index):
+        self.level_index = max(0, min(len(LEVELS) - 1, index))
+        self.level = LEVELS[self.level_index]
+        self.objects = build_objects(self.level)
+        self.best[self.level_index] = max(self.best[self.level_index], 0)
+        self.start_attempt()
+
+    def start_attempt(self):
+        self.attempt += 1
+        self.state = "playing"
+        self.paused = False
+        self.distance = 0.0
+        self.elapsed = 0.0
+        self.camera = 0.0
+        self.checkpoints = []
+        self.last_checkpoint = 0.0
+        self.death_timer = 0.0
+        self.complete_timer = 0.0
+        self.effects = Effects()
+        self._reset_player()
+        self.message = ""
+        self.message_timer = 0.0
+
+    def restart(self):
+        if self.practice and self.checkpoints:
+            self.distance = self.checkpoints[-1]
+            self.last_checkpoint = self.distance
+            self._reset_player()
+            self.state = "playing"
+            self.paused = False
+            self.effects.burst(PLAYER_X + 12, GROUND_Y - 8, VIOLET, 12, 90)
+        else:
+            self.start_attempt()
+
+    def jump(self):
+        if self.state in ("menu", "dead", "complete"):
+            if self.state == "menu":
+                self.start_attempt()
+            elif self.state == "dead":
+                self.start_attempt()
+            else:
+                self.select_level((self.level_index + 1) % len(LEVELS))
+            return
+        if self.paused:
+            return
+        self.jump_buffer = 0.11
+
+    def key(self, key, pressed):
+        key = str(key).lower()
+        if pressed:
+            if key in self.keys:
+                return
+            self.keys.add(key)
+            if key in (" ", "space", "arrowup", "w"):
+                self.jump()
+            elif key in ("p", "escape"):
+                if self.state == "playing":
+                    self.paused = not self.paused
+            elif key == "r":
+                self.restart()
+            elif key == "c":
+                self.practice = not self.practice
+                self.message = "PRACTICE MODE ON" if self.practice else "PRACTICE MODE OFF"
+                self.message_timer = 1.6
+            elif key in ("1", "2", "3") and self.state in ("menu", "dead", "complete"):
+                self.select_level(int(key) - 1)
+        else:
+            self.keys.discard(key)
+
+    def click(self, x, y):
+        if self.state == "menu" and y < 245 and x > 410:
+            self.select_level(min(2, max(0, int((y - 105) / 48))))
+        else:
+            self.jump()
+
+    def _die(self):
+        self.state = "dead"
+        self.death_timer = 0.0
+        self.effects.shake = 9.0
+        self.effects.flash = 1.0
+        self.effects.burst(PLAYER_X + PLAYER_SIZE / 2, self.player_y + PLAYER_SIZE / 2, RED, 38, 300)
+
+    def _collision(self, obj):
+        sx = obj["x"] - self.distance + PLAYER_X
+        py = self.player_y
+        # Slightly inset player box, as in the forgiving collision feel of rhythm platformers.
+        left, right = PLAYER_X + 4, PLAYER_X + PLAYER_SIZE - 4
+        top, bottom = py + 4, py + PLAYER_SIZE - 3
+        if obj["kind"] == "block":
+            ox1, ox2 = sx + 3, sx + obj["w"] - 3
+            oy = GROUND_Y - obj["h"] + 3
+            return right > ox1 and left < ox2 and bottom > oy and top < GROUND_Y
+        # Triangle collision: check horizontal overlap and the spike surface at overlap midpoint.
+        ox1, ox2 = sx + 5, sx + obj["w"] - 5
+        if right <= ox1 or left >= ox2 or bottom <= GROUND_Y - obj["h"] + 4:
+            return False
+        overlap_x = max(ox1, min(ox2, (left + right) * 0.5))
+        half = obj["w"] * 0.5
+        slope_height = obj["h"] * (1.0 - abs((overlap_x - (sx + half)) / half))
+        surface_y = GROUND_Y - slope_height
+        return bottom > surface_y - 2
+
+    def _physics(self, dt):
+        self.elapsed += dt
+        speed = self.level["speed"]
+        self.distance += speed * dt
+        self.camera = self.distance
+        grounded = self.player_y >= GROUND_Y - PLAYER_SIZE - 0.5
+        self.coyote = 0.085 if grounded else max(0.0, self.coyote - dt)
+        self.jump_buffer = max(0.0, self.jump_buffer - dt)
+        if self.jump_buffer > 0 and self.coyote > 0:
+            self.player_vy = JUMP_VELOCITY
+            self.jump_buffer = 0.0
+            self.coyote = 0.0
+            self.effects.burst(PLAYER_X + 12, GROUND_Y - 2, self.level["color"], 7, 65)
+        self.player_vy += GRAVITY * dt
+        self.player_y += self.player_vy * dt
+        if self.player_y >= GROUND_Y - PLAYER_SIZE:
+            self.player_y = float(GROUND_Y - PLAYER_SIZE)
+            self.player_vy = 0.0
+        if self.player_y < GROUND_Y - PLAYER_SIZE - 1:
+            self.rotation = (self.rotation + speed * dt * 0.012) % math.tau
+        else:
+            self.rotation = round(self.rotation / (math.pi / 2)) * (math.pi / 2)
+
+        self.effects.trail(PLAYER_X + 2, self.player_y + PLAYER_SIZE - 3, self.level["color"])
+        for obj in self.objects:
+            if obj["x"] - self.distance > PLAYER_X + 100:
+                break
+            if obj["x"] + obj["w"] - self.distance >= PLAYER_X and self._collision(obj):
+                self._die()
+                return
+        if self.practice and self.distance - self.last_checkpoint >= 650:
+            self.last_checkpoint = int(self.distance // 650) * 650
+            self.checkpoints.append(self.last_checkpoint)
+            self.effects.burst(PLAYER_X + 12, GROUND_Y - 8, GREEN, 14, 110)
+            self.message = "CHECKPOINT"
+            self.message_timer = 1.0
+        if self.distance >= self.level["length"]:
+            self.state = "complete"
+            self.complete_timer = 0.0
+            self.best[self.level_index] = max(self.best[self.level_index], 100)
+            self.effects.burst(PLAYER_X + 12, self.player_y + 12, GREEN, 45, 260)
+
+    def update(self, dt):
+        dt = min(max(float(dt), 0.0), 0.05)
+        self.effects.update(dt)
+        self.message_timer = max(0.0, self.message_timer - dt)
+        if self.state == "dead":
+            self.death_timer += dt
+            return
+        if self.state == "complete":
+            self.complete_timer += dt
+            return
+        if self.state != "playing" or self.paused:
+            return
+        # Substep physics for stable collision and jump timing at low frame rates.
+        steps = max(1, int(math.ceil(dt / FIXED_STEP)))
+        step = dt / steps
+        for _ in range(steps):
+            if self.state != "playing":
+                break
+            self._physics(step)
+        percent = min(100, int(self.distance / self.level["length"] * 100))
+        self.best[self.level_index] = max(self.best[self.level_index], percent)
+
+    def _rect(self, ops, x, y, w, h, color):
+        ops.append(("rect", int(x), int(y), int(w), int(h), color, ""))
+
+    def _line(self, ops, x1, y1, x2, y2, color):
+        ops.append(("line", int(x1), int(y1), int(x2), int(y2), color, ""))
+
+    def _text(self, ops, x, y, value, color=WHITE):
+        ops.append(("text", int(x), int(y), 0, 0, color, str(value)))
+
+    def _spike(self, ops, x, height, color):
+        base = GROUND_Y
+        tip = base - height
+        self._line(ops, x, base, x + 17, tip, color)
+        self._line(ops, x + 17, tip, x + 34, base, color)
+        self._line(ops, x + 2, base - 2, x + 17, tip + 7, WHITE)
+        self._line(ops, x + 17, tip + 7, x + 32, base - 2, WHITE)
+        self._line(ops, x, base, x + 34, base, color)
+
+    def render(self):
+        ops = [("clear", BG, 0, 0, 0, 0, "")]
+        level_color = self.level["color"]
+        # Layered Python Studio-style technical backdrop.
+        for i in range(8):
+            shade = ["#0d1727", "#0e192a", "#101c2e", "#111e31"][i % 4]
+            self._rect(ops, 0, i * 36, WIDTH, 36, shade)
+        for i in range(12):
+            x = int((i * 64 - self.distance * 0.18) % 768) - 64
+            self._line(ops, x, 0, x, GROUND_Y, GRID)
+        for y in range(34, GROUND_Y, 36):
+            self._line(ops, 0, y, WIDTH, y, "#17263a")
+        # Floating code-like particles in the far background.
+        for i in range(9):
+            x = int((i * 91 - self.distance * 0.10) % 700) - 30
+            y = 42 + (i * 37) % 150
+            self._rect(ops, x, y, 3 + i % 3, 3, "#243c55")
+        # Floor and glowing horizon.
+        self._rect(ops, 0, GROUND_Y, WIDTH, HEIGHT - GROUND_Y, "#111d2e")
+        self._rect(ops, 0, GROUND_Y, WIDTH, 3, level_color)
+        self._rect(ops, 0, GROUND_Y + 4, WIDTH, 1, "#30465f")
+        for i in range(18):
+            x = int((i * 44 - self.distance % 44))
+            self._rect(ops, x, GROUND_Y + 18, 21, 3, "#30465f")
+        # Decorative rails.
+        for i in range(6):
+            x = int((i * 132 - self.distance * 0.45) % 790) - 70
+            self._rect(ops, x, 76 + (i % 3) * 19, 24, 2, "#20344c")
+
+        # World objects.
+        for obj in self.objects:
+            sx = obj["x"] - self.distance + PLAYER_X
+            if sx < -60 or sx > WIDTH + 60:
+                continue
+            if obj["kind"] == "spike":
+                self._spike(ops, sx, obj["h"], level_color)
+            else:
+                y = GROUND_Y - obj["h"]
+                self._rect(ops, sx, y, obj["w"], obj["h"], "#1c3550")
+                self._rect(ops, sx + 3, y + 3, obj["w"] - 6, 4, level_color)
+                self._rect(ops, sx + 5, y + 12, obj["w"] - 10, 2, "#54718e")
+                self._rect(ops, sx + 5, GROUND_Y - 5, obj["w"] - 10, 2, level_color)
+
+        # Player glow, rotation outline, and face.
+        px, py = PLAYER_X, self.player_y
+        self._rect(ops, px - 5, py - 5, PLAYER_SIZE + 10, PLAYER_SIZE + 10, "#122d43")
+        self._rect(ops, px - 2, py - 2, PLAYER_SIZE + 4, PLAYER_SIZE + 4, level_color)
+        self._rect(ops, px, py, PLAYER_SIZE, PLAYER_SIZE, "#dff8ff")
+        self._rect(ops, px + 4, py + 4, PLAYER_SIZE - 8, PLAYER_SIZE - 8, level_color)
+        # Rotating diamond-like inner glyph.
+        cx, cy = px + PLAYER_SIZE / 2, py + PLAYER_SIZE / 2
+        radius = 8
+        points = []
+        for i in range(4):
+            a = self.rotation + math.pi / 4 + i * math.pi / 2
+            points.append((cx + math.cos(a) * radius, cy + math.sin(a) * radius))
+        for i in range(4):
+            self._line(ops, *points[i], *points[(i + 1) % 4], "#f4fbff")
+        self._rect(ops, px + 8, py + 8, 4, 4, "#0b1220")
+        self._rect(ops, px + 18, py + 8, 4, 4, "#0b1220")
+
+        self.effects.render(ops)
+        # HUD.
+        self._rect(ops, 14, 12, 612, 38, "#0b1524")
+        self._rect(ops, 20, 18, 600, 5, "#263a50")
+        progress = min(1.0, self.distance / self.level["length"])
+        self._rect(ops, 20, 18, int(600 * progress), 5, level_color)
+        self._text(ops, 20, 41, self.level["name"], WHITE)
+        self._text(ops, 480, 41, str(int(progress * 100)) + "%", level_color)
+        self._text(ops, 20, 66, "ATTEMPT " + str(max(1, self.attempt)), MUTED)
+        self._text(ops, 492, 66, "BEST " + str(self.best[self.level_index]) + "%", MUTED)
+        if self.practice:
+            self._text(ops, 270, 66, "PRACTICE", GREEN)
+
+        if self.state == "menu":
+            self._rect(ops, 90, 83, 460, 178, "#0b1728")
+            self._rect(ops, 90, 83, 4, 178, VIOLET)
+            self._text(ops, 126, 121, "n3xn / PYTHON STUDIO", CYAN)
+            self._text(ops, 126, 157, "GEOMETRY RUN", WHITE)
+            self._text(ops, 126, 181, "A precision platform game", MUTED)
+            self._text(ops, 126, 218, "SPACE / CLICK  START", level_color)
+            self._text(ops, 126, 241, "1-3 SELECT LEVEL   C PRACTICE", MUTED)
+            self._text(ops, 390, 118, "01  FIRST STEPS", WHITE)
+            self._text(ops, 390, 166, "02  NEON CIRCUIT", VIOLET)
+            self._text(ops, 390, 214, "03  BYTECODE RUSH", GREEN)
+        elif self.paused:
+            self._rect(ops, 150, 120, 340, 105, "#0b1728")
+            self._text(ops, 260, 157, "PAUSED", WHITE)
+            self._text(ops, 194, 188, "P / ESCAPE TO RESUME", CYAN)
+        elif self.state == "dead":
+            self._rect(ops, 120, 113, 400, 112, "#20182b")
+            self._text(ops, 255, 151, "CRASHED", RED)
+            self._text(ops, 165, 181, "SPACE / CLICK TO RETRY", WHITE)
+            self._text(ops, 211, 204, "R RESTART  •  C PRACTICE", MUTED)
+        elif self.state == "complete":
+            self._rect(ops, 105, 108, 430, 120, "#102b2c")
+            self._text(ops, 230, 148, "LEVEL COMPLETE", GREEN)
+            self._text(ops, 158, 179, "SPACE / CLICK FOR NEXT LEVEL", WHITE)
+            self._text(ops, 224, 204, "100%  •  NICE RUN", MUTED)
+        elif self.message_timer > 0:
+            self._text(ops, 255, 112, self.message, GREEN)
+
+        self._text(ops, 18, 348, "SPACE / CLICK JUMP   P PAUSE   R RESTART   C PRACTICE", MUTED)
+        if self.effects.flash > 0:
+            self._rect(ops, 0, 0, WIDTH, HEIGHT, "#34202b")
+        return ops

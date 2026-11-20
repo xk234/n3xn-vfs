@@ -28,6 +28,7 @@ function renderFiles(){
 }
 function openFile(path){
  if(!files[path])return;
+ if(typeof files[path]!=="string"){log("Asset "+path+" is bundled with the project. Open it from Python with a binary file mode.", "system");return;}
  activeFile=path;switchModel(path,files[path]);$("active-file").textContent=path;renderFiles();
 }
 function onEditorChange(value){files[activeFile]=value;saveSoon();}
@@ -106,15 +107,18 @@ async function run(){
 }
 async function importFile(file){
  try{
-  const text=await file.text();
-  if(file.name.endsWith(".json")){
-   const data=JSON.parse(text);
+  if(file.name.endsWith(".n3py.json")){
+   const data=JSON.parse(await file.text());
    if(data.format!=="n3xn-python-project"||!data.files)throw new Error("Not a valid n3xn Python project export.");
    files=data.files;entry=data.entry||"/main.py";
   }else{
-   const path=normalizePath("/"+file.name);files[path]=text;if(!files[entry])entry=path;
+   const path=normalizePath("/"+file.name);
+   const textExtensions=/\.(py|txt|csv|json|toml|ya?ml|md|html?|css|js|svg|xml|ini|cfg|tsv)$/i;
+   if(textExtensions.test(file.name)){files[path]=await file.text();}
+   else{const bytes=new Uint8Array(await file.arrayBuffer());let binary="";for(let i=0;i<bytes.length;i+=32768)binary+=String.fromCharCode(...bytes.subarray(i,i+32768));files[path]={__n3xn_binary__:true,mime:file.type||"application/octet-stream",base64:btoa(binary)};}
+   if(typeof files[entry]!=="string")entry=Object.keys(files).find(p=>typeof files[p]==="string")||path;
   }
-  for(const path of Object.keys(files))switchModel(path,files[path]);
+  for(const [path,value] of Object.entries(files))if(typeof value==="string")switchModel(path,value);
   openFile(entry);renderFiles();await saveProject(files,entry);log("Imported "+file.name,"ok");
  }catch(error){log("Import failed: "+error.message,"err");}
 }

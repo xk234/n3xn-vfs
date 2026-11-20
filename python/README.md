@@ -18,12 +18,49 @@ A standalone Python playground that lives beside Dreamland at `/python/`. It use
 - Import individual Python/text files or a complete `.n3py.json` project export.
 - Export the full project and its entry-file setting as `.n3py.json`.
 - Console output, Python REPL, graphics canvas, and sandboxed HTML preview.
-- The `n3xn` Python bridge currently provides `write(text, level)`, `clear(color)`, `draw(kind, x, y, width, height, color, label)`, `draw_batch(operations)`, `show_html(html)`, and `on_click(callback)`. Click callbacks are retained explicitly by the worker and released when a new run replaces them or a run fails, preventing expired Pyodide borrowed-proxy errors.
+- The `n3xn` Python bridge provides `write(text, level)`, `clear(color)`, `draw(kind, x, y, width, height, color, label)`, `draw_batch(operations)`, `show_html(html)`, `on_click(callback)`, `on_frame(callback)`, and `on_key(callback)`. Retained callbacks are released when a new run replaces them or a run fails.
 
-## Demos
+## Games development
 
-The template manifest includes Hello Python, Number Lab, CSV Analyzer, Canvas Clicker, and Mandelbrot Explorer.
+The template selector now has a **Games** category, starting with **Geometry Dash: Python Edition**.
+
+The game bridge is intentionally small and low-dependency:
+
+```python
+from n3xn import draw_batch, on_frame, on_key, on_click
+
+def update(dt):
+    # update your world and draw it with draw_batch([...])
+    pass
+
+def key_event(key, pressed):
+    pass
+
+on_frame(update)       # called at a capped 30 FPS
+on_key(key_event)      # key name and pressed/released state
+on_click(lambda x, y: None)
+```
+
+Available drawing operations are `clear`, `rect`, `circle`, `line`, and `text`. Frame callbacks run in the Python worker; the UI sends bounded time steps and input events. Keep frame work small, batch drawing operations, and avoid blocking calls inside a game callback.
+
+### Geometry Dash controls
+
+- **Space / Up / W / click:** jump
+- **P:** pause or resume
+- **R:** restart
+- Reach the finish without hitting spikes or blocks.
+
+This is an original, self-contained platformer demo inspired by one-button rhythm games; it does not include Geometry Dash's proprietary art, music, or levels.
+
+## Existing demos
+
+- Hello Python
+- Number Lab
+- CSV Analyzer
+- Canvas Clicker
+- Mandelbrot Explorer
+- Geometry Dash: Python Edition
 
 ## Notes and current boundaries
 
-This is a browser-hosted CPython environment, not a native Linux process. Native extensions must have compatible Pyodide wheels; arbitrary system packages, subprocesses, native binaries, and unrestricted OS access are not provided. Worker execution has a 60-second guard. The canvas bridge is an intentionally small graphics API, not a full Pygame or SDL implementation. Offline operation requires a successful initial runtime download and sufficient browser cache storage.
+This is a browser-hosted CPython environment, not a native Linux process. Native extensions must have compatible Pyodide wheels; arbitrary system packages, subprocesses, native binaries, and unrestricted OS access are not provided. Worker execution has a 60-second guard. The canvas bridge is a small graphics API rather than a full Pygame or SDL implementation. Offline operation requires a successful initial runtime download and sufficient browser cache storage.

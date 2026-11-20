@@ -175,7 +175,7 @@ window.addEventListener("keydown",event=>{
  if(target?.closest?.(".monaco-editor")||["INPUT","TEXTAREA","SELECT"].includes(target?.tagName))return;
  if(gameInputActive){
   const key=event.key.toLowerCase();
-  if([" ","arrowup","w","r","p"].includes(key)){event.preventDefault();sendKey(event.key,event.repeat?false:true);}
+  if([" ","arrowup","w","r","p","c","escape","1","2","3"].includes(key)){event.preventDefault();sendKey(event.key,event.repeat?false:true);}
  }
 });
 window.addEventListener("keyup",event=>{if(gameInputActive)sendKey(event.key,false);});

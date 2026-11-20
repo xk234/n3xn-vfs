@@ -1,7 +1,8 @@
-"""Small deterministic particle effects; no external dependencies."""
+"""Lightweight particle effects — no external dependencies."""
 import math
 import random
 from .config import MAX_PARTICLES
+
 
 class Effects:
     def __init__(self):
@@ -17,15 +18,23 @@ class Effects:
             angle = random.random() * math.tau
             speed = random.uniform(power * 0.25, power)
             self.particles.append([
-                x, y, math.cos(angle) * speed, math.sin(angle) * speed,
-                random.uniform(0.22, 0.65), random.uniform(2.0, 5.0), color
+                x, y,
+                math.cos(angle) * speed,
+                math.sin(angle) * speed,
+                random.uniform(0.22, 0.65),
+                random.uniform(2.0, 5.0),
+                color,
             ])
 
     def trail(self, x, y, color):
-        if len(self.particles) < MAX_PARTICLES and random.random() < 0.72:
+        if len(self.particles) < MAX_PARTICLES and random.random() < 0.7:
             self.particles.append([
-                x, y, random.uniform(-55, -12), random.uniform(-22, 22),
-                random.uniform(0.12, 0.26), random.uniform(2, 4), color
+                x, y,
+                random.uniform(-55, -12),
+                random.uniform(-22, 22),
+                random.uniform(0.12, 0.26),
+                random.uniform(2, 4),
+                color,
             ])
 
     def update(self, dt):

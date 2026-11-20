@@ -456,9 +456,11 @@ Example:
 
 ## 🎮 Python game development
 
-The standalone **Python Studio** at `/python/` now includes a dedicated **Games** demo category. The first playable project is **Geometry Dash: Python Edition**, an original single-player obstacle platformer with keyboard/mouse controls, frame updates, collision, pause/restart, and level progress.
+The standalone **Python Studio** at `/python/` includes a dedicated **Games** category. Its featured project, **Geometry Run — Python Studio**, is a modular Geometry Dash-style precision platformer with three original levels, jump physics, spikes, blocks, jump pads, jump orbs, practice checkpoints, particles, synthesized sound effects, progress tracking, and a Python Studio-themed HUD.
 
-Game development notes and the shared Python graphics/input API are documented in [Python Games](python/templates/games/README.md). The current runtime supports local single-player games; multiplayer demos will be added only with an actual synchronization and transport layer (such as a configured WSS relay), not simulated player labels.
+The game is split into editable Python modules under `python/templates/games/geometry_dash/`: `main.py`, `config.py`, `levels.py`, `effects.py`, and `engine.py`. The shared runtime exposes frame, keyboard, mouse, batched drawing, and local sound callbacks. See [Python Games](python/templates/games/README.md) for controls and development notes.
+
+The current game is single-player. Real multiplayer will require an actual network transport and synchronized simulation; it is not represented as multiplayer until that exists.
 
 ---
 

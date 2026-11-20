@@ -299,17 +299,24 @@ class GeometryGame:
     def _line(self, ops, x1, y1, x2, y2, color):
         ops.append(("line", int(x1), int(y1), int(x2), int(y2), color, ""))
 
+    def _poly(self, ops, points, color):
+        encoded = ";".join(str(int(x)) + "," + str(int(y)) for x, y in points)
+        ops.append(("poly", 0, 0, 0, 0, color, encoded))
+
+    def _round_rect(self, ops, x, y, w, h, color, radius=5):
+        ops.append(("roundrect", int(x), int(y), int(w), int(h), color, str(radius)))
+
     def _text(self, ops, x, y, value, color=WHITE):
         ops.append(("text", int(x), int(y), 0, 0, color, str(value)))
 
     def _spike(self, ops, x, height, color):
         base = GROUND_Y
         tip = base - height
-        self._line(ops, x, base, x + 17, tip, color)
-        self._line(ops, x + 17, tip, x + 34, base, color)
-        self._line(ops, x + 2, base - 2, x + 17, tip + 7, WHITE)
-        self._line(ops, x + 17, tip + 7, x + 32, base - 2, WHITE)
-        self._line(ops, x, base, x + 34, base, color)
+        # Solid, beveled hazard silhouettes read much more clearly at speed.
+        self._poly(ops, [(x, base), (x + 17, tip), (x + 34, base)], "#07101d")
+        self._poly(ops, [(x + 3, base - 2), (x + 17, tip + 5), (x + 31, base - 2)], color)
+        self._poly(ops, [(x + 8, base - 3), (x + 17, tip + 13), (x + 26, base - 3)], "#eaf4ff")
+        self._line(ops, x + 1, base, x + 33, base, color)
 
     def render(self):
         ops = [("clear", BG, 0, 0, 0, 0, "")]
@@ -317,10 +324,8 @@ class GeometryGame:
         shake_x = random.uniform(-self.effects.shake, self.effects.shake) if self.effects.shake > 0 else 0
         shake_y = random.uniform(-self.effects.shake * 0.45, self.effects.shake * 0.45) if self.effects.shake > 0 else 0
         pulse = 1.0 + math.sin(self.effects.tick * 7.0) * 0.12
-        # Layered Python Studio-style technical backdrop.
-        for i in range(8):
-            shade = ["#0d1727", "#0e192a", "#101c2e", "#111e31"][i % 4]
-            self._rect(ops, 0, i * 36, WIDTH, 36, shade)
+        # Smooth atmospheric backdrop replaces the old stacked color bands.
+        ops.append(("gradient", 0, 0, WIDTH, HEIGHT, "#07101d", "#17283c"))
         for i in range(12):
             x = int((i * 64 - self.distance * 0.18) % 768) - 64
             self._line(ops, x, 0, x, GROUND_Y, GRID)
@@ -377,10 +382,10 @@ class GeometryGame:
         # Player glow, rotation outline, and face.
         px, py = PLAYER_X + shake_x, self.player_y + shake_y
         if self.state != "dead" or self.death_timer < 0.08:
-            self._rect(ops, px - 5, py - 5, PLAYER_SIZE + 10, PLAYER_SIZE + 10, "#122d43")
-            self._rect(ops, px - 2, py - 2, PLAYER_SIZE + 4, PLAYER_SIZE + 4, level_color)
-            self._rect(ops, px, py, PLAYER_SIZE, PLAYER_SIZE, "#dff8ff")
-            self._rect(ops, px + 4, py + 4, PLAYER_SIZE - 8, PLAYER_SIZE - 8, level_color)
+            self._round_rect(ops, px - 5, py - 5, PLAYER_SIZE + 10, PLAYER_SIZE + 10, "#122d43", 8)
+            self._round_rect(ops, px - 2, py - 2, PLAYER_SIZE + 4, PLAYER_SIZE + 4, level_color, 7)
+            self._round_rect(ops, px, py, PLAYER_SIZE, PLAYER_SIZE, "#eaf7ff", 5)
+            self._round_rect(ops, px + 4, py + 4, PLAYER_SIZE - 8, PLAYER_SIZE - 8, level_color, 3)
             # Rotating diamond-like inner glyph.
             cx, cy = px + PLAYER_SIZE / 2, py + PLAYER_SIZE / 2
             radius = 8

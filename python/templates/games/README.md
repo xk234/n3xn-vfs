@@ -50,12 +50,12 @@ on_key(key_event)
 on_click(lambda x, y: None)
 ```
 
-Drawing operations: `clear`, `rect`, `circle`, `line`, and `text`. The Python callback is invoked in a dedicated worker at a 30 FPS target. Keep per-frame work bounded and use batched drawing. The `n3xn.play_sound(kind)` bridge triggers lightweight synthesized jump, pad, orb, checkpoint, crash, and completion effects after a user gesture unlocks audio.
+Drawing operations: `clear`, `rect`, `circle`, `line`, and `text`. The Python callback is invoked in a dedicated worker at a 30 FPS target. Keep per-frame work bounded and use batched drawing. The `n3xn.play_sound(kind)` bridge triggers synthesized jump, pad, orb, coin, checkpoint, crash, and completion effects, plus an original 16-step procedural electronic loop. Audio starts after the first user gesture and pauses/resumes with gameplay.
 
 ## Roadmap
 
 - Add jump pads, jump orbs, gravity portals, speed portals, and alternate movement modes.
 - Add custom level authoring/import and level validation.
-- Add original sound effects and optional beat-synced soundtrack support.
+- Expand the original soundtrack and add level-specific beat maps and audio timing tools.
 - Add more original levels and a progression/select screen.
 - Add a real multiplayer game only after a transport and authoritative/synchronized simulation layer is implemented; local Python worker callbacks alone are not multiplayer.

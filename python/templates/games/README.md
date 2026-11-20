@@ -32,6 +32,7 @@ Project files in the template:
 - **P / Escape:** pause or resume.
 - **R:** restart (practice mode resumes from the latest checkpoint).
 - **C:** toggle practice mode.
+- **H:** toggle the live hitbox debug overlay (red player bounds, amber obstacle bounds).
 - **1 / 2 / 3:** select a level from the title/death/completion screen.
 
 ### Runtime API

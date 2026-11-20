@@ -2,6 +2,7 @@ import {loadProject,saveProject,fetchManifest,fetchTemplate,normalizePath,downlo
 import {initMonaco,switchModel,removeModel,setEditorTheme,setPythonMarkers,getEditor,clearPythonMarkers} from "./monaco.js";
 import {setRuntimeHandlers,ensureRuntime,runProject,runConsole,installPackage,stopRuntime,sendCanvasClick,sendFrame,sendKey} from "./runtime.js";
 import {unlockAudio,playGameSound,stopGameMusic} from "./audio.js";
+import {exportSingleHTML} from "./singlefile.js";
 const $=id=>document.getElementById(id);
 const BASE=new URL("../",import.meta.url).href;
 const status=$("runtime-status"),consoleOut=$("console-out"),fileList=$("file-list"),canvas=$("graphics-canvas"),ctx=canvas.getContext("2d");
@@ -136,7 +137,10 @@ async function init(){
 $("run-btn").onclick=run;
 $("stop-btn").onclick=()=>{stopRuntime();stopGameLoop();gameInputActive=false;$("run-btn").disabled=false;$("stop-btn").disabled=true;};
 $("clear-output-btn").onclick=clearOutput;
-$("game-fullscreen").onclick=()=>{if(document.fullscreenElement){document.exitFullscreen?.();}else{canvas.requestFullscreen?.().catch(error=>log("Fullscreen unavailable: "+error.message,"warn"));}};
+$("game-fullscreen").onclick=()=>toggleFullscreen($("graphics-panel"));
+function toggleFullscreen(element){if(document.fullscreenElement){document.exitFullscreen?.();}else{element.requestFullscreen?.().catch(error=>log("Fullscreen unavailable: "+error.message,"warn"));}}
+$("terminal-fullscreen").onclick=()=>toggleFullscreen($("console-panel"));
+$("html-fullscreen").onclick=()=>toggleFullscreen($("preview-panel"));
 async function sendConsoleCommand(){
  const input=$("console-input"),code=input.value.trim();if(!code)return;input.value="";log(">>> "+code,"system");
  try{const result=await runConsole(code);if(result)log(result,"ok");}catch(error){log(error.message||String(error),"err");}
@@ -147,6 +151,7 @@ $("new-file-btn").onclick=()=>{const path=normalizePath(prompt("New project file
 $("import-btn").onclick=()=>$("file-input").click();
 $("file-input").onchange=async e=>{for(const file of Array.from(e.target.files||[]))await importFile(file);e.target.value="";};
 $("export-btn").onclick=()=>{files[activeFile]=editor.getValue();downloadProject({files,entry});log("Project export created.","ok");};
+$("export-html-btn").onclick=async()=>{files[activeFile]=editor.getValue();$("export-html-btn").disabled=true;try{await exportSingleHTML({files,entry,log});}catch(error){log("Single-file export failed: "+(error.message||error),"err");}finally{$("export-html-btn").disabled=false;}};
 $("set-entry-btn").onclick=()=>{entry=activeFile;$("project-name").textContent=entry.split("/").pop();saveSoon();log("Run entry point set to "+entry,"ok");};
 $("packages-btn").onclick=()=>{
  $("dialog-title").textContent="Python packages";

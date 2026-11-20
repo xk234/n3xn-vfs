@@ -55,7 +55,7 @@
       "id": "geometry-dash",
       "category": "Games",
       "name": "🟦 Geometry Dash — Python Studio Edition",
-      "description": "A polished multi-level rhythm platformer with precision jumps, rotating cube, spikes, blocks, jump pads, timed orbs, collectible coins, practice checkpoints, particles, synthesized sound, and three original levels.",
+      "description": "A polished multi-level rhythm platformer with precision jumps, rotating cube, spikes, blocks, jump pads, timed orbs, collectible coins, practice checkpoints, particles, synthesized sound, an original electronic soundtrack, and three original levels.",
       "entry": "/main.py",
       "files": {
         "/main.py": "games/geometry_dash/main.py",

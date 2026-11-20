@@ -383,18 +383,17 @@ class GeometryGame:
         px, py = PLAYER_X + shake_x, self.player_y + shake_y
         if self.state != "dead" or self.death_timer < 0.08:
             self._round_rect(ops, px - 5, py - 5, PLAYER_SIZE + 10, PLAYER_SIZE + 10, "#122d43", 8)
-            self._round_rect(ops, px - 2, py - 2, PLAYER_SIZE + 4, PLAYER_SIZE + 4, level_color, 7)
-            self._round_rect(ops, px, py, PLAYER_SIZE, PLAYER_SIZE, "#eaf7ff", 5)
-            self._round_rect(ops, px + 4, py + 4, PLAYER_SIZE - 8, PLAYER_SIZE - 8, level_color, 3)
-            # Rotating diamond-like inner glyph.
             cx, cy = px + PLAYER_SIZE / 2, py + PLAYER_SIZE / 2
-            radius = 8
-            points = []
-            for i in range(4):
-                a = self.rotation + math.pi / 4 + i * math.pi / 2
-                points.append((cx + math.cos(a) * radius, cy + math.sin(a) * radius))
-            for i in range(4):
-                self._line(ops, *points[i], *points[(i + 1) % 4], "#f4fbff")
+            # Rotate the actual cube silhouette while keeping its gameplay hitbox stable.
+            cube = [(cx + math.cos(self.rotation + math.pi / 4 + i * math.pi / 2) * 20,
+                     cy + math.sin(self.rotation + math.pi / 4 + i * math.pi / 2) * 20) for i in range(4)]
+            inner = [(cx + math.cos(self.rotation + math.pi / 4 + i * math.pi / 2) * 15,
+                      cy + math.sin(self.rotation + math.pi / 4 + i * math.pi / 2) * 15) for i in range(4)]
+            core = [(cx + math.cos(self.rotation + math.pi / 4 + i * math.pi / 2) * 10,
+                     cy + math.sin(self.rotation + math.pi / 4 + i * math.pi / 2) * 10) for i in range(4)]
+            self._poly(ops, cube, level_color)
+            self._poly(ops, inner, "#eaf7ff")
+            self._poly(ops, core, level_color)
             self._rect(ops, px + 8, py + 8, 4, 4, "#0b1220")
             self._rect(ops, px + 18, py + 8, 4, 4, "#0b1220")
 

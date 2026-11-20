@@ -108,14 +108,15 @@ async function run(){
 }
 async function importFile(file){
  try{
+  const decodeUTF8=async source=>new TextDecoder("utf-8",{fatal:true}).decode(await source.arrayBuffer());
   if(file.name.endsWith(".n3py.json")){
-   const data=JSON.parse(await file.text());
+   const data=JSON.parse(await decodeUTF8(file));
    if(data.format!=="n3xn-python-project"||!data.files)throw new Error("Not a valid n3xn Python project export.");
    files=data.files;entry=data.entry||"/main.py";
   }else{
    const path=normalizePath("/"+file.name);
    const textExtensions=/\.(py|txt|csv|json|toml|ya?ml|md|html?|css|js|svg|xml|ini|cfg|tsv)$/i;
-   if(textExtensions.test(file.name)){files[path]=await file.text();}
+   if(textExtensions.test(file.name)){files[path]=await decodeUTF8(file);}
    else{const bytes=new Uint8Array(await file.arrayBuffer());let binary="";for(let i=0;i<bytes.length;i+=32768)binary+=String.fromCharCode(...bytes.subarray(i,i+32768));files[path]={__n3xn_binary__:true,mime:file.type||"application/octet-stream",base64:btoa(binary)};}
    if(typeof files[entry]!=="string")entry=Object.keys(files).find(p=>typeof files[p]==="string")||path;
   }

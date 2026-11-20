@@ -18,7 +18,7 @@ on_key(keyboard)
 on_click(mouse_click)
 on_frame(update)
 
-print("GEOMETRY RUN — n3xn Python Studio")
+print("GEOMETRY DASH — Python Studio Edition")
 print("Space / Up / W / click: jump")
 print("P / Escape: pause    R: restart    C: practice mode")
 print("1 / 2 / 3: select a level from the title screen")

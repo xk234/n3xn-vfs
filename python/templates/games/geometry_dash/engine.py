@@ -4,6 +4,7 @@ import random
 from .config import *
 from .levels import LEVELS, build_objects
 from .effects import Effects
+from n3xn import play_sound
 
 class GeometryGame:
     def __init__(self):
@@ -127,6 +128,7 @@ class GeometryGame:
         self.effects.shake = 9.0
         self.effects.flash = 1.0
         self.effects.burst(PLAYER_X + PLAYER_SIZE / 2, self.player_y + PLAYER_SIZE / 2, RED, 38, 300)
+        play_sound("death")
 
     def _collision(self, obj):
         sx = obj["x"] - self.distance + PLAYER_X
@@ -172,12 +174,14 @@ class GeometryGame:
                     self.jump_buffer = 0.0
                     self.coyote = 0.0
                     self.effects.burst(ox, oy, self.level["accent"], 18, 145)
+                    play_sound("orb")
                     break
         if self.jump_buffer > 0 and self.coyote > 0:
             self.player_vy = JUMP_VELOCITY
             self.jump_buffer = 0.0
             self.coyote = 0.0
             self.effects.burst(PLAYER_X + 12, GROUND_Y - 2, self.level["color"], 7, 65)
+            play_sound("jump")
         self.player_vy += GRAVITY * dt
         self.player_y += self.player_vy * dt
         if self.player_y >= GROUND_Y - PLAYER_SIZE:
@@ -201,6 +205,7 @@ class GeometryGame:
                     self.player_y -= 2
                     self.coyote = 0.0
                     self.effects.burst(screen_x + obj["w"] / 2, GROUND_Y - 8, self.level["accent"], 16, 130)
+                    play_sound("pad")
             if obj["kind"] in ("pad", "orb"):
                 continue
             if obj["x"] + obj["w"] - self.distance >= PLAYER_X and self._collision(obj):
@@ -210,6 +215,7 @@ class GeometryGame:
             self.last_checkpoint = int(self.distance // 650) * 650
             self.checkpoints.append(self.last_checkpoint)
             self.effects.burst(PLAYER_X + 12, GROUND_Y - 8, GREEN, 14, 110)
+            play_sound("checkpoint")
             self.message = "CHECKPOINT"
             self.message_timer = 1.0
         if self.distance >= self.level["length"]:
@@ -217,6 +223,7 @@ class GeometryGame:
             self.complete_timer = 0.0
             self.best[self.level_index] = max(self.best[self.level_index], 100)
             self.effects.burst(PLAYER_X + 12, self.player_y + 12, GREEN, 45, 260)
+            play_sound("complete")
 
     def update(self, dt):
         dt = min(max(float(dt), 0.0), 0.05)

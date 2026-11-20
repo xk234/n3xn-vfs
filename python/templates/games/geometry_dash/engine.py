@@ -26,6 +26,7 @@ class GeometryGame:
         self.coyote = 0.0
         self.distance = 0.0
         self.elapsed = 0.0
+        self.physics_accumulator = 0.0
         self.checkpoints = []
         self.last_checkpoint = 0.0
         self.death_timer = 0.0
@@ -56,6 +57,7 @@ class GeometryGame:
         self.paused = False
         self.distance = 0.0
         self.elapsed = 0.0
+        self.physics_accumulator = 0.0
         self.camera = 0.0
         self.checkpoints = []
         self.last_checkpoint = 0.0
@@ -85,6 +87,7 @@ class GeometryGame:
                 if obj["kind"] == "coin" and obj["x"] >= self.distance:
                     obj["collected"] = False
             self._reset_player()
+            self.physics_accumulator = 0.0
             self.state = "playing"
             self.paused = False
             self.effects.burst(PLAYER_X + 12, GROUND_Y - 8, VIOLET, 12, 90)
@@ -103,7 +106,7 @@ class GeometryGame:
             return
         if self.paused:
             return
-        self.jump_buffer = 0.11
+        self.jump_buffer = 0.145
 
     def key(self, key, pressed):
         key = str(key).lower()
@@ -142,27 +145,35 @@ class GeometryGame:
         self.effects.burst(PLAYER_X + PLAYER_SIZE / 2, self.player_y + PLAYER_SIZE / 2, RED, 38, 300)
         play_sound("death")
 
+    @staticmethod
+    def _polygons_overlap(a, b):
+        """Separating-axis test: avoids the old spike-center false positives."""
+        for polygon in (a, b):
+            for i in range(len(polygon)):
+                p1, p2 = polygon[i], polygon[(i + 1) % len(polygon)]
+                axis = (-(p2[1] - p1[1]), p2[0] - p1[0])
+                al = [p[0] * axis[0] + p[1] * axis[1] for p in a]
+                bl = [p[0] * axis[0] + p[1] * axis[1] for p in b]
+                if max(al) <= min(bl) or max(bl) <= min(al):
+                    return False
+        return True
+
     def _collision(self, obj):
         sx = obj["x"] - self.distance + PLAYER_X
-        py = self.player_y
-        # Slightly inset player box, as in the forgiving collision feel of rhythm platformers.
-        left, right = PLAYER_X + 4, PLAYER_X + PLAYER_SIZE - 4
-        top, bottom = py + 4, py + PLAYER_SIZE - 3
+        # A small, consistent inset gives a forgiving cube hitbox without
+        # making the visible cube and collision shape feel unrelated.
+        left, right = PLAYER_X + 3.5, PLAYER_X + PLAYER_SIZE - 3.5
+        top, bottom = self.player_y + 3.5, self.player_y + PLAYER_SIZE - 2.5
         if obj["kind"] in ("pad", "orb", "coin"):
             return False
         if obj["kind"] == "block":
-            ox1, ox2 = sx + 3, sx + obj["w"] - 3
-            oy = GROUND_Y - obj["h"] + 3
-            return right > ox1 and left < ox2 and bottom > oy and top < GROUND_Y
-        # Triangle collision: check horizontal overlap and the spike surface at overlap midpoint.
-        ox1, ox2 = sx + 5, sx + obj["w"] - 5
-        if right <= ox1 or left >= ox2 or bottom <= GROUND_Y - obj["h"] + 4:
-            return False
-        overlap_x = max(ox1, min(ox2, (left + right) * 0.5))
-        half = obj["w"] * 0.5
-        slope_height = obj["h"] * (1.0 - abs((overlap_x - (sx + half)) / half))
-        surface_y = GROUND_Y - slope_height
-        return bottom > surface_y - 2
+            ox1, ox2 = sx + 2.0, sx + obj["w"] - 2.0
+            oy1, oy2 = GROUND_Y - obj["h"] + 2.0, GROUND_Y
+            return right > ox1 and left < ox2 and bottom > oy1 and top < oy2
+        # Real triangular spike collision (SAT), not a midpoint approximation.
+        spike = [(sx + 2.0, GROUND_Y), (sx + obj["w"] * 0.5, GROUND_Y - obj["h"]), (sx + obj["w"] - 2.0, GROUND_Y)]
+        player = [(left, top), (right, top), (right, bottom), (left, bottom)]
+        return self._polygons_overlap(player, spike)
 
     def _physics(self, dt):
         self.elapsed += dt
@@ -170,7 +181,7 @@ class GeometryGame:
         self.distance += speed * dt
         self.camera = self.distance
         grounded = self.player_y >= GROUND_Y - PLAYER_SIZE - 0.5
-        self.coyote = 0.085 if grounded else max(0.0, self.coyote - dt)
+        self.coyote = 0.105 if grounded else max(0.0, self.coyote - dt)
         self.jump_buffer = max(0.0, self.jump_buffer - dt)
         # Orbs activate only when a jump press is timed near the ring.
         if self.jump_buffer > 0:
@@ -180,7 +191,7 @@ class GeometryGame:
                 ox = obj["x"] - self.distance + PLAYER_X + obj["w"] / 2
                 oy = obj["y"] + obj["h"] / 2
                 cx, cy = PLAYER_X + PLAYER_SIZE / 2, self.player_y + PLAYER_SIZE / 2
-                if abs(cx - ox) < 34 and abs(cy - oy) < 38:
+                if abs(cx - ox) < 43 and abs(cy - oy) < 44:
                     obj["used"] = True
                     self.player_vy = -735.0
                     self.jump_buffer = 0.0
@@ -259,7 +270,7 @@ class GeometryGame:
             play_sound("complete")
 
     def update(self, dt):
-        dt = min(max(float(dt), 0.0), 0.05)
+        dt = min(max(float(dt), 0.0), 0.10)
         self.effects.update(dt)
         self.message_timer = max(0.0, self.message_timer - dt)
         if self.state == "dead":
@@ -269,17 +280,19 @@ class GeometryGame:
             self.complete_timer += dt
             return
         if self.state != "playing" or self.paused:
+            self.physics_accumulator = 0.0
             return
-        # Substep physics for stable collision and jump timing at low frame rates.
-        steps = max(1, int(math.ceil(dt / FIXED_STEP)))
-        step = dt / steps
-        for _ in range(steps):
+        # A true fixed-step accumulator keeps jump arcs and collisions identical
+        # at 30, 60, 120 FPS and during short frame-time spikes.
+        self.physics_accumulator = min(self.physics_accumulator + dt, FIXED_STEP * 12)
+        while self.physics_accumulator >= FIXED_STEP:
             if self.state != "playing":
+                self.physics_accumulator = 0.0
                 break
-            self._physics(step)
+            self._physics(FIXED_STEP)
+            self.physics_accumulator -= FIXED_STEP
         percent = min(100, int(self.distance / self.level["length"] * 100))
         self.best[self.level_index] = max(self.best[self.level_index], percent)
-
     def _rect(self, ops, x, y, w, h, color):
         ops.append(("rect", int(x), int(y), int(w), int(h), color, ""))
 

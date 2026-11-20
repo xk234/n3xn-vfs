@@ -59,6 +59,9 @@ class GeometryGame:
         self.camera = 0.0
         self.checkpoints = []
         self.last_checkpoint = 0.0
+        for obj in self.objects:
+            if obj["kind"] in ("pad", "orb"):
+                obj["used"] = False
         self.death_timer = 0.0
         self.complete_timer = 0.0
         self.effects = Effects()

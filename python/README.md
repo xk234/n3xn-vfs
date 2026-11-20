@@ -68,7 +68,7 @@ This is a browser-hosted CPython environment, not a native Linux process. Native
 
 ## Games development
 
-The template picker includes a **Games** category. The featured **Geometry Run — Python Studio** project is a modular multi-file platform game in `templates/games/geometry_dash/`.
+The template picker includes a **Games** category. The featured **Geometry Dash — Python Studio Edition** project is a modular multi-file platform game in `templates/games/geometry_dash/`.
 
 Its files separate configuration, hand-authored level patterns, particle effects, and the game engine. It includes three original levels, automatic forward movement, precise jumping, spikes and blocks, jump pads and orbs, practice checkpoints, a progress HUD, particles, and synthesized sound effects. Controls: Space/Up/W/click to jump, P/Escape to pause, R to restart, C to toggle practice, and 1–3 to choose a level from the title screen.
 

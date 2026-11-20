@@ -1,4 +1,4 @@
-"""Geometry Run — the n3xn Python Studio rhythm-platformer."""
+"""Geometry Dash — the n3xn Python Studio rhythm-platformer."""
 from n3xn import draw_batch, on_click, on_frame, on_key
 from geometry_dash.engine import GeometryGame
 

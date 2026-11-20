@@ -81,7 +81,7 @@ setRuntimeHandlers({
  draw:drawShape,
  drawBatch:msg=>{for(const op of msg.operations||[])drawShape({kind:op[0],x:op[1],y:op[2],w:op[3],h:op[4],color:op[5],label:op[6]});},
  html:msg=>{$("web-preview").srcdoc=msg.html;document.querySelector('[data-panel="preview-panel"]').click();},
- gameLoop:msg=>{if(msg.enabled){startGameLoop();$("graphics-hint").textContent="Game controls: Space / Up / W / click · P pause · R restart · C practice · 1–3 levels";document.querySelector('[data-panel="graphics-panel"]').click();}else{stopGameLoop();stopGameMusic();$("graphics-hint").textContent="Python demos can draw here with the n3xn graphics bridge."; }},
+ gameLoop:msg=>{if(msg.enabled){startGameLoop();$("graphics-hint").textContent="Game controls: Space / Up / W / click · P pause · R restart · C practice · H hitboxes · 1–3 levels";document.querySelector('[data-panel="graphics-panel"]').click();}else{stopGameLoop();stopGameMusic();$("graphics-hint").textContent="Python demos can draw here with the n3xn graphics bridge."; }},
  gameInput:msg=>{gameInputActive=!!msg.enabled;},
  error:msg=>{setStatus("Runtime error","error");log(msg.message,"err");},
  stopped:()=>{stopGameLoop();gameInputActive=false;setStatus("Stopped");$("stop-btn").disabled=true;log("Python worker stopped. Runtime will reload on next run.","system");},

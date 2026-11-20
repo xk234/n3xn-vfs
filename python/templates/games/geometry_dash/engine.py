@@ -72,6 +72,7 @@ class GeometryGame:
         self._reset_player()
         self.message = ""
         self.message_timer = 0.0
+        play_sound("start")
 
     def restart(self):
         if self.practice and self.checkpoints:
@@ -87,6 +88,7 @@ class GeometryGame:
             self.state = "playing"
             self.paused = False
             self.effects.burst(PLAYER_X + 12, GROUND_Y - 8, VIOLET, 12, 90)
+            play_sound("resume")
         else:
             self.start_attempt()
 
@@ -114,6 +116,7 @@ class GeometryGame:
             elif key in ("p", "escape"):
                 if self.state == "playing":
                     self.paused = not self.paused
+                    play_sound("pause" if self.paused else "resume")
             elif key == "r":
                 self.restart()
             elif key == "c":

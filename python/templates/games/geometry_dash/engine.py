@@ -11,6 +11,7 @@ class GeometryGame:
         self.level_index = 0
         self.practice = False
         self.attempt = 0
+        self.coins = 0
         self.best = [0 for _ in LEVELS]
         self.effects = Effects()
         self.keys = set()
@@ -26,9 +27,12 @@ class GeometryGame:
         self.elapsed = 0.0
         self.checkpoints = []
         self.last_checkpoint = 0.0
+        self.coins = 0
         for obj in self.objects:
             if obj["kind"] in ("pad", "orb"):
                 obj["used"] = False
+            if obj["kind"] == "coin":
+                obj["collected"] = False
         self.death_timer = 0.0
         self.complete_timer = 0.0
         self.level = LEVELS[0]
@@ -77,6 +81,8 @@ class GeometryGame:
             for obj in self.objects:
                 if obj["kind"] in ("pad", "orb") and obj["x"] >= self.distance:
                     obj["used"] = False
+                if obj["kind"] == "coin" and obj["x"] >= self.distance:
+                    obj["collected"] = False
             self._reset_player()
             self.state = "playing"
             self.paused = False
@@ -139,7 +145,7 @@ class GeometryGame:
         # Slightly inset player box, as in the forgiving collision feel of rhythm platformers.
         left, right = PLAYER_X + 4, PLAYER_X + PLAYER_SIZE - 4
         top, bottom = py + 4, py + PLAYER_SIZE - 3
-        if obj["kind"] in ("pad", "orb"):
+        if obj["kind"] in ("pad", "orb", "coin"):
             return False
         if obj["kind"] == "block":
             ox1, ox2 = sx + 3, sx + obj["w"] - 3
@@ -200,6 +206,17 @@ class GeometryGame:
             if obj["x"] - self.distance > PLAYER_X + 110:
                 break
             screen_x = obj["x"] - self.distance + PLAYER_X
+            if obj["kind"] == "coin" and not obj["collected"]:
+                coin_x = screen_x + obj["w"] / 2
+                coin_y = obj["y"] + obj["h"] / 2
+                player_cx = PLAYER_X + PLAYER_SIZE / 2
+                player_cy = self.player_y + PLAYER_SIZE / 2
+                if abs(player_cx - coin_x) < 25 and abs(player_cy - coin_y) < 28:
+                    obj["collected"] = True
+                    self.coins += 1
+                    self.effects.burst(coin_x, coin_y, AMBER, 14, 120)
+                    play_sound("coin")
+                continue
             if obj["kind"] == "pad" and not obj["used"]:
                 grounded_now = self.player_y >= GROUND_Y - PLAYER_SIZE - 0.5
                 if grounded_now and PLAYER_X + PLAYER_SIZE > screen_x and PLAYER_X < screen_x + obj["w"]:
@@ -321,6 +338,12 @@ class GeometryGame:
                 self._rect(ops, sx, GROUND_Y - 8, obj["w"], 8, pad_color)
                 self._rect(ops, sx + 5, GROUND_Y - 12, obj["w"] - 10, 4, WHITE)
                 self._rect(ops, sx + 10, GROUND_Y - 16, obj["w"] - 20, 3, pad_color)
+            elif obj["kind"] == "coin":
+                if not obj["collected"]:
+                    ox, oy = sx + obj["w"] // 2, obj["y"] + obj["h"] // 2
+                    self._rect(ops, ox - 9, oy - 12, 18, 24, AMBER)
+                    self._rect(ops, ox - 5, oy - 8, 10, 16, "#fff2b2")
+                    self._rect(ops, ox - 2, oy - 6, 4, 12, AMBER)
             elif obj["kind"] == "orb":
                 orb_color = "#526174" if obj["used"] else self.level["accent"]
                 ox, oy = sx + obj["w"] // 2, obj["y"] + obj["h"] // 2
@@ -362,7 +385,8 @@ class GeometryGame:
         self._text(ops, 20, 41, self.level["name"], WHITE)
         self._text(ops, 480, 41, str(int(progress * 100)) + "%", level_color)
         self._text(ops, 20, 66, "ATTEMPT " + str(max(1, self.attempt)), MUTED)
-        self._text(ops, 492, 66, "BEST " + str(self.best[self.level_index]) + "%", MUTED)
+        self._text(ops, 400, 66, "COINS " + str(self.coins), AMBER)
+        self._text(ops, 520, 66, "BEST " + str(self.best[self.level_index]) + "%", MUTED)
         if self.practice:
             self._text(ops, 270, 66, "PRACTICE", GREEN)
 

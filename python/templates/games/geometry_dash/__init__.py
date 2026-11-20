@@ -1,1 +1,5 @@
-"""Modular Geometry Dash-style game for n3xn Python Studio."""
+"""Geometry Dash — Python Studio Edition package."""
+from .engine import GeometryGame
+from .config import WIDTH, HEIGHT
+
+__all__ = ["GeometryGame", "WIDTH", "HEIGHT"]

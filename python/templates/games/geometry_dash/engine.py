@@ -219,7 +219,7 @@ class GeometryGame:
             hazards = [o for o in self.objects if o["kind"] in ("spike", "block")]
             previous_end = max([o["x"] + o["w"] for o in hazards if o["x"] + o["w"] <= checkpoint] or [0])
             next_start = min([o["x"] for o in hazards if o["x"] >= checkpoint] or [self.level["length"]])
-            safe_low, safe_high = previous_end + 80, next_start - 110
+            safe_low, safe_high = previous_end + 60, next_start - 100
             if safe_low <= safe_high:
                 checkpoint = min(max(checkpoint, safe_low), safe_high)
             else:

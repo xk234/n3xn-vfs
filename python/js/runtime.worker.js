@@ -103,6 +103,6 @@ self.onmessage=async(event)=>{
     return;
   }
   if(msg.type==="click"){invoke(clickHandler,[msg.x,msg.y]);return;}
-  if(msg.type==="frame"){invoke(frameHandler,[msg.dt]);return;}
+  if(msg.type==="frame"){invoke(frameHandler,[msg.dt]);send("frameDone",{});return;}
   if(msg.type==="key"){invoke(keyHandler,[msg.key,msg.pressed]);}
 };

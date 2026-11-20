@@ -171,6 +171,8 @@ $("editor-fullscreen").onclick=()=>document.querySelector(".editor-pane").classL
 $("format-btn").onclick=()=>{const model=editor.getModel();const actions=editor.getActions();const action=actions.find(a=>a.id==="editor.action.formatDocument");if(action)action.run();else log("No Python formatter is installed. Install black or autopep8 to format from Python.","warn");};
 canvas.addEventListener("click",event=>{const rect=canvas.getBoundingClientRect();sendCanvasClick((event.clientX-rect.left)*canvas.width/rect.width,(event.clientY-rect.top)*canvas.height/rect.height);});
 window.addEventListener("keydown",event=>{
+ const target=event.target;
+ if(target?.closest?.(".monaco-editor")||["INPUT","TEXTAREA","SELECT"].includes(target?.tagName))return;
  if(gameInputActive){
   const key=event.key.toLowerCase();
   if([" ","arrowup","w","r","p"].includes(key)){event.preventDefault();sendKey(event.key,event.repeat?false:true);}

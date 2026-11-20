@@ -62,7 +62,7 @@ async function syncFiles(files){
     const clean=cleanProjectPath(path);if(!clean)continue;
     const full=root+"/"+clean,parent=full.slice(0,full.lastIndexOf("/"));
     try{py.FS.mkdirTree(parent);}catch(_){}
-    py.FS.writeFile(full,String(content));
+    if(content&&typeof content==="object"&&content.__n3xn_binary__&&content.base64){const binary=atob(content.base64),bytes=new Uint8Array(binary.length);for(let i=0;i<binary.length;i++)bytes[i]=binary.charCodeAt(i);py.FS.writeFile(full,bytes);}else py.FS.writeFile(full,String(content));
   }
   py.globals.set("_n3xn_project_root",root);
 }

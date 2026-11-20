@@ -1,10 +1,11 @@
 import {loadProject,saveProject,fetchManifest,fetchTemplate,normalizePath,downloadProject} from "./vfs.js";
 import {initMonaco,switchModel,removeModel,setEditorTheme,setPythonMarkers,getEditor,clearPythonMarkers} from "./monaco.js";
-import {setRuntimeHandlers,ensureRuntime,runProject,runConsole,installPackage,stopRuntime,sendCanvasClick} from "./runtime.js";
+import {setRuntimeHandlers,ensureRuntime,runProject,runConsole,installPackage,stopRuntime,sendCanvasClick,sendFrame,sendKey} from "./runtime.js";
 const $=id=>document.getElementById(id);
 const BASE=new URL("../",import.meta.url).href;
 const status=$("runtime-status"),consoleOut=$("console-out"),fileList=$("file-list"),canvas=$("graphics-canvas"),ctx=canvas.getContext("2d");
 let files={},entry="/main.py",activeFile="",templates=[],editor=null,saveTimer=null,runStarted=0;
+let gameFrame=0,lastFrame=0,frameAccumulator=0,gameLoopActive=false,gameInputActive=false;
 function log(text,level="out"){
  const row=document.createElement("div");row.className="log "+level;row.textContent=String(text);consoleOut.appendChild(row);consoleOut.scrollTop=consoleOut.scrollHeight;
 }
@@ -27,17 +28,14 @@ function openFile(path){
  if(!files[path])return;
  activeFile=path;switchModel(path,files[path]);$("active-file").textContent=path;renderFiles();
 }
-function onEditorChange(value){
- files[activeFile]=value;saveSoon();
-}
+function onEditorChange(value){files[activeFile]=value;saveSoon();}
 async function loadTemplate(tpl){
  try{
   const project=await fetchTemplate(BASE,tpl);files=project.files;entry=project.entry;
   Object.keys(files).forEach(path=>{if(getEditor()?.__models?.[path])removeModel(path);});
   for(const [path,code] of Object.entries(files)){if(getEditor())switchModel(path,code);}
   activeFile=entry;openFile(entry);renderFiles();await saveProject(files,entry);
-  log("Loaded "+tpl.name+" — "+tpl.description,"ok");
-  clearOutput();
+  log("Loaded "+tpl.name+" — "+tpl.description,"ok");clearOutput();
  }catch(error){log(error.message,"err");}
 }
 function clearOutput(){consoleOut.replaceChildren();ctx.clearRect(0,0,canvas.width,canvas.height);ctx.fillStyle="#080f20";ctx.fillRect(0,0,canvas.width,canvas.height);$("web-preview").srcdoc="<!doctype html><body style='font:14px system-ui;padding:24px;color:#64748b'>Python HTML output appears here when your script calls n3xn.show_html(...).</body>";}
@@ -50,6 +48,23 @@ function drawShape(msg){
  else if(kind==="line"){ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(w,h);ctx.stroke();}
  else if(kind==="text"){ctx.font="16px ui-monospace,monospace";ctx.fillText(String(label),x,y);}
 }
+function stopGameLoop(){
+ if(gameFrame)cancelAnimationFrame(gameFrame);
+ gameFrame=0;gameLoopActive=false;lastFrame=0;frameAccumulator=0;
+}
+function startGameLoop(){
+ if(gameLoopActive)return;
+ gameLoopActive=true;lastFrame=0;frameAccumulator=0;
+ const tick=now=>{
+  if(!gameLoopActive)return;
+  if(!lastFrame)lastFrame=now;
+  frameAccumulator+=Math.min((now-lastFrame)/1000,0.1);lastFrame=now;
+  // Keep Python game callbacks to a predictable 30 FPS on low-power devices.
+  while(frameAccumulator>=1/30){sendFrame(1/30);frameAccumulator-=1/30;}
+  gameFrame=requestAnimationFrame(tick);
+ };
+ gameFrame=requestAnimationFrame(tick);
+}
 setRuntimeHandlers({
  ready:msg=>{setStatus("Pyodide "+msg.version,"ready");log("CPython WebAssembly runtime ready.","ok");},
  stdout:msg=>log(msg.text,msg.level==="warn"?"warn":msg.level==="ok"?"ok":"out"),
@@ -58,8 +73,10 @@ setRuntimeHandlers({
  draw:drawShape,
  drawBatch:msg=>{for(const op of msg.operations||[])drawShape({kind:op[0],x:op[1],y:op[2],w:op[3],h:op[4],color:op[5],label:op[6]});},
  html:msg=>{$("web-preview").srcdoc=msg.html;document.querySelector('[data-panel="preview-panel"]').click();},
+ gameLoop:msg=>{if(msg.enabled){startGameLoop();document.querySelector('[data-panel="graphics-panel"]').click();}else stopGameLoop();},
+ gameInput:msg=>{gameInputActive=!!msg.enabled;},
  error:msg=>{setStatus("Runtime error","error");log(msg.message,"err");},
- stopped:()=>{setStatus("Stopped");$("stop-btn").disabled=true;log("Python worker stopped. Runtime will reload on next run.","system");},
+ stopped:()=>{stopGameLoop();gameInputActive=false;setStatus("Stopped");$("stop-btn").disabled=true;log("Python worker stopped. Runtime will reload on next run.","system");},
 });
 async function startRuntime(){
  setStatus("Loading Pyodide…");$("run-btn").disabled=true;
@@ -111,12 +128,11 @@ async function init(){
   for(const tpl of templates){const option=document.createElement("option");option.value=tpl.id;option.textContent="["+tpl.category+"] "+tpl.name;option.title=tpl.description||"";$("template-select").appendChild(option);}
   $("template-select").onchange=()=>loadTemplate(templates.find(t=>t.id===$("template-select").value));
   editor=await initMonaco({container:$("monaco-root"),files,initialFile:entry,onChange:onEditorChange,onRun:run,onCursor:pos=>$("cursor-label").textContent="Ln "+pos.lineNumber+", Col "+pos.column});
-  setEditorTheme(savedTheme);
-  openFile(entry);renderFiles();setStatus("Editor ready","ready");log("Python project restored. Press Run to start the WebAssembly runtime.","system");
+  setEditorTheme(savedTheme);openFile(entry);renderFiles();setStatus("Editor ready","ready");log("Python project restored. Press Run to start the WebAssembly runtime.","system");
  }catch(error){setStatus("Startup failed","error");log(error.stack||error.message,"err");}
 }
 $("run-btn").onclick=run;
-$("stop-btn").onclick=()=>{stopRuntime();$("run-btn").disabled=false;$("stop-btn").disabled=true;};
+$("stop-btn").onclick=()=>{stopRuntime();stopGameLoop();gameInputActive=false;$("run-btn").disabled=false;$("stop-btn").disabled=true;};
 $("clear-output-btn").onclick=clearOutput;
 async function sendConsoleCommand(){
  const input=$("console-input"),code=input.value.trim();if(!code)return;input.value="";log(">>> "+code,"system");
@@ -154,5 +170,13 @@ document.querySelectorAll(".tab").forEach(tab=>tab.onclick=()=>{document.querySe
 $("editor-fullscreen").onclick=()=>document.querySelector(".editor-pane").classList.toggle("focus");
 $("format-btn").onclick=()=>{const model=editor.getModel();const actions=editor.getActions();const action=actions.find(a=>a.id==="editor.action.formatDocument");if(action)action.run();else log("No Python formatter is installed. Install black or autopep8 to format from Python.","warn");};
 canvas.addEventListener("click",event=>{const rect=canvas.getBoundingClientRect();sendCanvasClick((event.clientX-rect.left)*canvas.width/rect.width,(event.clientY-rect.top)*canvas.height/rect.height);});
-window.addEventListener("beforeunload",()=>{if(editor&&activeFile)files[activeFile]=editor.getValue();saveProject(files,entry);});
+window.addEventListener("keydown",event=>{
+ if(gameInputActive){
+  const key=event.key.toLowerCase();
+  if([" ","arrowup","w","r","p"].includes(key)){event.preventDefault();sendKey(event.key,event.repeat?false:true);}
+ }
+});
+window.addEventListener("keyup",event=>{if(gameInputActive)sendKey(event.key,false);});
+window.addEventListener("blur",()=>{if(gameInputActive)for(const key of [" ","ArrowUp","w"])sendKey(key,false);});
+window.addEventListener("beforeunload",()=>{stopGameLoop();if(editor&&activeFile)files[activeFile]=editor.getValue();saveProject(files,entry);});
 await init();

@@ -1,23 +1,15 @@
 """
-Geometry Dash — Python Studio Edition
-=====================================
-Pure n3xn runtime entry. Never imports pygame.
+I Am Geometrying My Dash
+========================
+by Keagan  ·  AI Agents
+Pure n3xn Python Studio — no pygame.
 
-Controls
-  Space / W / Up / click   jump / start
-  1 2 3                    select level (menu)
-  P / Escape              pause
-  R                        restart (or last checkpoint in practice)
-  C                        practice mode
-  H                        toggle hitbox debug
-
-Works with:
-  - n3xn Python Studio (on_frame / draw_batch)
-  - Single-HTML exporter (file:///)
+Modes: Cube · Ship · Ball · Wave · Gravity portals · Speed portals
 """
 
 from n3xn import draw_batch, on_frame, on_key, on_click
 from geometry_dash import GeometryGame
+from geometry_dash.config import TITLE, SUBTITLE, VERSION
 
 game = GeometryGame()
 
@@ -39,5 +31,6 @@ on_key(keyboard)
 on_click(mouse_click)
 on_frame(update)
 
-print("GEOMETRY DASH — Python Studio Edition")
-print("Space / click = jump | 1-3 = levels | C = practice | H = hitboxes")
+print(f"{TITLE}  v{VERSION}")
+print(SUBTITLE)
+print("Space/click=jump | 1-4=levels | C=practice | H=hitboxes | P=pause")

@@ -1,29 +1,32 @@
-"""Shared tuning and visual configuration — n3xn Python Studio."""
+"""I Am Geometrying My Dash — shared tuning (n3xn Python Studio)."""
 WIDTH, HEIGHT = 640, 360
 GROUND_Y = 292
+CEILING_Y = 28
 PLAYER_X = 142
 PLAYER_SIZE = 28
 
-# Collision is intentionally tighter than the visual cube.
-# This is the main source of "fair" Geometry Dash feel.
 HITBOX_INSET = 4.0
 
-BASE_SPEED = 315.0
 GRAVITY = 1850.0
 JUMP_VELOCITY = -640.0
 ORB_VELOCITY = -720.0
 PAD_VELOCITY = -800.0
 
-# Fixed physics step (independent of render FPS)
+SHIP_GRAVITY = 980.0
+SHIP_THRUST = -1180.0
+SHIP_MAX_FALL = 720.0
+SHIP_MAX_RISE = -720.0
+
+BALL_GRAVITY = 1650.0
+BALL_FLIP = -380.0
+
+WAVE_SPEED_Y = 420.0
+
 FIXED_STEP = 1.0 / 120.0
+JUMP_BUFFER = 0.12
+COYOTE_TIME = 0.09
+MAX_PARTICLES = 120
 
-# Input forgiveness
-JUMP_BUFFER = 0.12   # seconds
-COYOTE_TIME = 0.09   # seconds
-
-MAX_PARTICLES = 100
-
-# Python Studio palette
 BG = "#0b1220"
 PANEL = "#111c2d"
 GRID = "#1c2b40"
@@ -38,3 +41,9 @@ MUTED = "#8da4bd"
 GREEN = "#34d399"
 RED = "#fb7185"
 DARK = "#07101d"
+ORANGE = "#fb923c"
+TEAL = "#2dd4bf"
+
+TITLE = "I Am Geometrying My Dash"
+SUBTITLE = "by Keagan  ·  AI Agents"
+VERSION = "1.2"

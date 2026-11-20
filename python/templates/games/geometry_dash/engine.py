@@ -268,6 +268,9 @@ class GeometryGame:
     def render(self):
         ops = [("clear", BG, 0, 0, 0, 0, "")]
         level_color = self.level["color"]
+        shake_x = random.uniform(-self.effects.shake, self.effects.shake) if self.effects.shake > 0 else 0
+        shake_y = random.uniform(-self.effects.shake * 0.45, self.effects.shake * 0.45) if self.effects.shake > 0 else 0
+        pulse = 1.0 + math.sin(self.effects.tick * 7.0) * 0.12
         # Layered Python Studio-style technical backdrop.
         for i in range(8):
             shade = ["#0d1727", "#0e192a", "#101c2e", "#111e31"][i % 4]
@@ -296,7 +299,7 @@ class GeometryGame:
 
         # World objects.
         for obj in self.objects:
-            sx = obj["x"] - self.distance + PLAYER_X
+            sx = obj["x"] - self.distance + PLAYER_X + shake_x
             if sx < -60 or sx > WIDTH + 60:
                 continue
             if obj["kind"] == "spike":
@@ -309,7 +312,7 @@ class GeometryGame:
             elif obj["kind"] == "orb":
                 orb_color = "#526174" if obj["used"] else self.level["accent"]
                 ox, oy = sx + obj["w"] // 2, obj["y"] + obj["h"] // 2
-                ops.append(("circle", ox, oy, 14, 0, orb_color, ""))
+                ops.append(("circle", ox, oy, int(14 * pulse), 0, orb_color, ""))
                 ops.append(("circle", ox, oy, 8, 0, BG, ""))
                 ops.append(("circle", ox, oy, 3, 0, WHITE, ""))
             else:
@@ -320,22 +323,23 @@ class GeometryGame:
                 self._rect(ops, sx + 5, GROUND_Y - 5, obj["w"] - 10, 2, level_color)
 
         # Player glow, rotation outline, and face.
-        px, py = PLAYER_X, self.player_y
-        self._rect(ops, px - 5, py - 5, PLAYER_SIZE + 10, PLAYER_SIZE + 10, "#122d43")
-        self._rect(ops, px - 2, py - 2, PLAYER_SIZE + 4, PLAYER_SIZE + 4, level_color)
-        self._rect(ops, px, py, PLAYER_SIZE, PLAYER_SIZE, "#dff8ff")
-        self._rect(ops, px + 4, py + 4, PLAYER_SIZE - 8, PLAYER_SIZE - 8, level_color)
-        # Rotating diamond-like inner glyph.
-        cx, cy = px + PLAYER_SIZE / 2, py + PLAYER_SIZE / 2
-        radius = 8
-        points = []
-        for i in range(4):
-            a = self.rotation + math.pi / 4 + i * math.pi / 2
-            points.append((cx + math.cos(a) * radius, cy + math.sin(a) * radius))
-        for i in range(4):
-            self._line(ops, *points[i], *points[(i + 1) % 4], "#f4fbff")
-        self._rect(ops, px + 8, py + 8, 4, 4, "#0b1220")
-        self._rect(ops, px + 18, py + 8, 4, 4, "#0b1220")
+        px, py = PLAYER_X + shake_x, self.player_y + shake_y
+        if self.state != "dead" or self.death_timer < 0.08:
+            self._rect(ops, px - 5, py - 5, PLAYER_SIZE + 10, PLAYER_SIZE + 10, "#122d43")
+            self._rect(ops, px - 2, py - 2, PLAYER_SIZE + 4, PLAYER_SIZE + 4, level_color)
+            self._rect(ops, px, py, PLAYER_SIZE, PLAYER_SIZE, "#dff8ff")
+            self._rect(ops, px + 4, py + 4, PLAYER_SIZE - 8, PLAYER_SIZE - 8, level_color)
+            # Rotating diamond-like inner glyph.
+            cx, cy = px + PLAYER_SIZE / 2, py + PLAYER_SIZE / 2
+            radius = 8
+            points = []
+            for i in range(4):
+                a = self.rotation + math.pi / 4 + i * math.pi / 2
+                points.append((cx + math.cos(a) * radius, cy + math.sin(a) * radius))
+            for i in range(4):
+                self._line(ops, *points[i], *points[(i + 1) % 4], "#f4fbff")
+            self._rect(ops, px + 8, py + 8, 4, 4, "#0b1220")
+            self._rect(ops, px + 18, py + 8, 4, 4, "#0b1220")
 
         self.effects.render(ops)
         # HUD.
@@ -380,5 +384,6 @@ class GeometryGame:
 
         self._text(ops, 18, 348, "SPACE / CLICK JUMP   P PAUSE   R RESTART   C PRACTICE", MUTED)
         if self.effects.flash > 0:
-            self._rect(ops, 0, 0, WIDTH, HEIGHT, "#34202b")
+            self._rect(ops, 0, 0, WIDTH, 3, RED)
+            self._rect(ops, 0, HEIGHT - 3, WIDTH, 3, RED)
         return ops

@@ -53,7 +53,8 @@ export function stopGameMusic(){
   musicWanted=false;musicPaused=false;if(musicTimer){clearInterval(musicTimer);musicTimer=null;}
 }
 export function playGameSound(kind){
-  if(!context||context.state!=="running")return;
+  if(!context)return;
+  if(context.state!=="running"){context.resume().then(()=>playGameSound(kind)).catch(()=>{});return;}
   if(kind==="jump"){tone(420,0.09,"triangle",0.16,0,180);}
   else if(kind==="pad"){tone(280,0.16,"sawtooth",0.2,0,520);tone(620,0.12,"sine",0.12,0.045,180);}
   else if(kind==="orb"){tone(680,0.14,"sine",0.2,0,420);tone(980,0.2,"sine",0.12,0.06,120);}

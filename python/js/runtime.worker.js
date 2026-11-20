@@ -40,6 +40,7 @@ async function initialize(base){
       },
       show_html:(html)=>send("html",{html:String(html)}),
       on_click:(callback)=>{clickHandler=retainCallback(callback,"n3xn.on_click()");},
+      play_sound:(kind)=>send("sound",{kind:String(kind)}),
       on_frame:(callback)=>{
         releaseProxy(frameHandler);frameHandler=retainCallback(callback,"n3xn.on_frame()");
         send("gameLoop",{enabled:true});

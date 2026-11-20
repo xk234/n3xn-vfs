@@ -225,7 +225,7 @@ class GeometryGame:
                     play_sound("pad")
             if obj["kind"] in ("pad", "orb"):
                 continue
-            if obj["x"] + obj["w"] - self.distance >= PLAYER_X and self._collision(obj):
+            if obj["x"] + obj["w"] - self.distance >= 0 and self._collision(obj):
                 self._die()
                 return
         if self.practice and self.distance - self.last_checkpoint >= 650:

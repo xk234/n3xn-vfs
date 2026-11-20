@@ -12,6 +12,7 @@ class GeometryGame:
         self.practice = False
         self.attempt = 0
         self.coins = 0
+        self.checkpoint_coins = 0
         self.best = [0 for _ in LEVELS]
         self.effects = Effects()
         self.keys = set()
@@ -59,6 +60,7 @@ class GeometryGame:
         self.checkpoints = []
         self.last_checkpoint = 0.0
         self.coins = 0
+        self.checkpoint_coins = 0
         for obj in self.objects:
             if obj["kind"] in ("pad", "orb"):
                 obj["used"] = False
@@ -75,6 +77,7 @@ class GeometryGame:
         if self.practice and self.checkpoints:
             self.distance = self.checkpoints[-1]
             self.last_checkpoint = self.distance
+            self.coins = self.checkpoint_coins
             for obj in self.objects:
                 if obj["kind"] in ("pad", "orb") and obj["x"] >= self.distance:
                     obj["used"] = False
@@ -239,6 +242,7 @@ class GeometryGame:
             else:
                 checkpoint = max(self.last_checkpoint + 260, next_start - 180)
             self.last_checkpoint = checkpoint
+            self.checkpoint_coins = self.coins
             self.checkpoints.append(checkpoint)
             self.effects.burst(PLAYER_X + 12, GROUND_Y - 8, GREEN, 14, 110)
             play_sound("checkpoint")

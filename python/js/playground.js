@@ -44,8 +44,11 @@ function clearOutput(){consoleOut.replaceChildren();ctx.clearRect(0,0,canvas.wid
 function drawShape(msg){
  const {kind,x=0,y=0,w=0,h=0,color="#fff",label=""}=msg;
  if(kind==="clear"){ctx.fillStyle=String(x||"#080f20");ctx.fillRect(0,0,canvas.width,canvas.height);return;}
- ctx.fillStyle=color;ctx.strokeStyle=color;
+ ctx.fillStyle=color;ctx.strokeStyle=color;ctx.lineWidth=2;ctx.lineJoin="round";
  if(kind==="rect")ctx.fillRect(x,y,w,h);
+ else if(kind==="roundrect"){ctx.beginPath();if(ctx.roundRect)ctx.roundRect(x,y,w,h,Math.min(Number(label)||5,w/2,h/2));else ctx.rect(x,y,w,h);ctx.fill();}
+ else if(kind==="gradient"){const gradient=ctx.createLinearGradient(0,y,0,y+h);gradient.addColorStop(0,color);gradient.addColorStop(1,String(label||"#17283c"));ctx.fillStyle=gradient;ctx.fillRect(x,y,w,h);}
+ else if(kind==="poly"){const points=String(label).split(";").map(pair=>pair.split(",").map(Number)).filter(p=>p.length===2&&p.every(Number.isFinite));if(points.length>=3){ctx.beginPath();ctx.moveTo(points[0][0],points[0][1]);for(const point of points.slice(1))ctx.lineTo(point[0],point[1]);ctx.closePath();ctx.fill();}}
  else if(kind==="circle"){ctx.beginPath();ctx.arc(x,y,w,0,Math.PI*2);ctx.fill();}
  else if(kind==="line"){ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(w,h);ctx.stroke();}
  else if(kind==="text"){ctx.font="16px ui-monospace,monospace";ctx.fillText(String(label),x,y);}

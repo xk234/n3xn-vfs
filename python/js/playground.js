@@ -1,6 +1,14 @@
 import {loadProject,saveProject,fetchManifest,fetchTemplate,normalizePath,downloadProject} from "./vfs.js";
 import {initMonaco,switchModel,removeModel,setEditorTheme,setPythonMarkers,getEditor,clearPythonMarkers} from "./monaco.js";
 import {setRuntimeHandlers,ensureRuntime,runProject,runConsole,installPackage,stopRuntime,sendCanvasClick,sendFrame,sendKey} from "./runtime.js";
+import {
+  needsMainThreadRuntime,
+  runPygameProject,
+  stopPygameHost,
+  setPygameHandlers,
+  isPygameRunning,
+  installMainThreadPackage,
+} from "./pygame-host.js";
 import {unlockAudio,playGameSound,stopGameMusic} from "./audio.js";
 import {exportSingleHTML} from "./singlefile.js";
 const $=id=>document.getElementById(id);
@@ -94,11 +102,31 @@ async function startRuntime(){
 async function run(){
  if(!files[activeFile])return;
  files[activeFile]=editor.getValue();saveSoon();clearPythonMarkers();
- if(!(await startRuntime()))return;
  runStarted=performance.now();$("execution-time").textContent="Running…";$("run-btn").disabled=true;$("stop-btn").disabled=false;
- log("▶ Running "+entry+" with "+Object.keys(files).length+" project files…","system");
+ const usePygame = needsMainThreadRuntime(files);
+ log("▶ Running "+entry+" with "+Object.keys(files).length+" project files"+(usePygame?" [pygame main-thread host]":"")+"…","system");
  try{
-  await runProject(files,entry);
+  if(usePygame){
+   // pygame-ce needs DOM/SDL — cannot run inside the worker
+   setPygameHandlers({
+    stdout:msg=>log(msg.text,msg.level==="warn"?"warn":msg.level==="ok"?"ok":msg.level==="err"?"err":"out"),
+    stderr:msg=>log(msg.text,"err"),
+    runError:msg=>log(msg.message||String(msg),"err"),
+    done:()=>{},
+    stopped:()=>{stopGameLoop();gameInputActive=false;},
+    status:msg=>setStatus(msg.text||"pygame","ready"),
+   });
+   // Show graphics panel so the canvas is visible
+   try{
+    document.querySelector('[data-panel="graphics-panel"]')?.click();
+    $("graphics-hint").textContent="pygame-ce main-thread host · click canvas for focus · Space/arrows as usual";
+   }catch(_){}
+   setStatus("pygame host","ready");
+   await runPygameProject({files,entry,canvas});
+  }else{
+   if(!(await startRuntime()))return;
+   await runProject(files,entry);
+  }
   $("execution-time").textContent=Math.round(performance.now()-runStarted)+" ms";
   log("Process finished.","ok");
  }catch(error){
@@ -144,7 +172,16 @@ async function init(){
  }catch(error){setStatus("Startup failed","error");log(error.stack||error.message,"err");}
 }
 $("run-btn").onclick=run;
-$("stop-btn").onclick=()=>{stopRuntime();stopGameLoop();gameInputActive=false;$("run-btn").disabled=false;$("stop-btn").disabled=true;};
+$("stop-btn").onclick=()=>{
+ try{stopPygameHost();}catch(_){}
+ stopRuntime();
+ stopGameLoop();
+ gameInputActive=false;
+ $("run-btn").disabled=false;
+ $("stop-btn").disabled=true;
+ setStatus("Stopped");
+ log("Stopped. Pygame host cannot hard-kill a tight loop — reload if it is stuck.","system");
+};
 $("clear-output-btn").onclick=clearOutput;
 $("game-fullscreen").onclick=()=>toggleFullscreen($("graphics-panel"));
 function toggleFullscreen(element){if(document.fullscreenElement){document.exitFullscreen?.();}else{element.requestFullscreen?.().catch(error=>log("Fullscreen unavailable: "+error.message,"warn"));}}
@@ -177,7 +214,17 @@ $("dialog-close").onclick=$("dialog-cancel").onclick=()=>$("dialog").classList.a
 $("dialog-confirm").onclick=async()=>{
  const name=$("package-name")?.value?.trim();if(!name)return;
  $("dialog-confirm").disabled=true;$("dialog-confirm").textContent="Installing…";log("Installing "+name+"…","system");
- try{await startRuntime();await installPackage(name);log("Installed "+name+".","ok");}
+ try{
+  const n=(name||"").trim().toLowerCase();
+  if(n==="pygame"||n==="pygame-ce"){
+   await installMainThreadPackage(name);
+   log("Installed pygame-ce on the main-thread host (import as pygame).","ok");
+  }else{
+   await startRuntime();
+   await installPackage(name);
+   log("Installed "+name+".","ok");
+  }
+ }
  catch(error){log(error.message,"err");}
  finally{$("dialog-confirm").disabled=false;$("dialog-confirm").textContent="Install";$("dialog").classList.add("hidden");}
 };

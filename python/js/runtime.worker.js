@@ -1,4 +1,4 @@
-let py=null,clickHandler=null,frameHandler=null,keyHandler=null,baseURL="";
+let py=null,clickHandler=null,frameHandler=null,keyHandler=null,baseURL="",projectFiles={};
 const send=(type,data={})=>self.postMessage({type,...data});
 
 function releaseProxy(proxy){
@@ -38,7 +38,7 @@ async function initialize(base){
         if(operations.destroy)operations.destroy();
         send("drawBatch",{operations:converted});
       },
-      show_html:(html)=>send("html",{html:String(html)}),
+      show_html:(html)=>send("html",{html:inlineProjectAssets(html)}),
       on_click:(callback)=>{clickHandler=retainCallback(callback,"n3xn.on_click()");},
       play_sound:(kind)=>send("sound",{kind:String(kind)}),
       on_frame:(callback)=>{
@@ -53,8 +53,25 @@ async function initialize(base){
     send("ready",{version:py.version||"CPython / WebAssembly"});
   }catch(error){send("init-error",{message:error?.stack||String(error)});}
 }
+function assetDataURI(path){
+  let value=String(path).split(/[?#]/)[0].replace(/\\/g,"/");
+  const parts=[];for(const item of value.split("/")){if(!item||item===".")continue;if(item===".."){parts.pop();continue;}parts.push(item);}
+  const key="/"+parts.join("/");let asset=projectFiles[key]??projectFiles[key.slice(1)];
+  if(asset&&typeof asset==="object"&&asset.__n3xn_binary__&&asset.base64)return "data:"+(asset.mime||"application/octet-stream")+";base64,"+asset.base64;
+  if(typeof asset!=="string")return null;
+  const ext=key.split(".").pop().toLowerCase(),mime=({css:"text/css",js:"text/javascript",mjs:"text/javascript",svg:"image/svg+xml",html:"text/html",htm:"text/html",txt:"text/plain",json:"application/json",xml:"application/xml",woff:"font/woff",woff2:"font/woff2",ttf:"font/ttf",otf:"font/otf"})[ext]||"text/plain";
+  const bytes=new TextEncoder().encode(asset);let binary="";for(let i=0;i<bytes.length;i+=32768)binary+=String.fromCharCode(...bytes.subarray(i,i+32768));
+  return "data:"+mime+";charset=utf-8;base64,"+btoa(binary);
+}
+function inlineProjectAssets(html){
+  const replace=(path)=>assetDataURI(path)||path;
+  return String(html)
+    .replace(/(\b(?:src|href)\s*=\s*["'])(?!data:|https?:|\/\/|#|javascript:|mailto:)([^"']+)(["'])/gi,(all,a,path,z)=>a+replace(path)+z)
+    .replace(/url\(\s*(["']?)(?!data:|https?:|\/\/|#)([^)'"]+)\1\s*\)/gi,(all,q,path)=>"url("+q+replace(path)+q+")");
+}
 function cleanProjectPath(path){return String(path).replace(/^\/+/, "").split("/").filter(p=>p&&p!=="."&&p!=="..").join("/");}
 async function syncFiles(files){
+  projectFiles=files||{};
   const root="/home/pyodide/project";
   try{await py.runPythonAsync("import shutil, os\nshutil.rmtree('/home/pyodide/project', ignore_errors=True)\nos.makedirs('/home/pyodide/project', exist_ok=True)");}catch(_){}
   try{py.FS.mkdirTree(root);}catch(_){}

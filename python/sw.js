@@ -1,4 +1,4 @@
-const VERSION="n3xn-python-shell-v5";
+const VERSION="n3xn-python-shell-v6";
 const PYODIDE_CACHE="n3xn-python-pyodide-0262";
 const BASE=new URL("./",self.location.href);
 const PY_PREFIX=new URL("__pyodide__/",BASE).pathname;

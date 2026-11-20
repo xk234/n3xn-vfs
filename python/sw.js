@@ -1,4 +1,4 @@
-const VERSION="n3xn-python-shell-v4";
+const VERSION="n3xn-python-shell-v5";
 const PYODIDE_CACHE="n3xn-python-pyodide-0262";
 const BASE=new URL("./",self.location.href);
 const PY_PREFIX=new URL("__pyodide__/",BASE).pathname;
@@ -6,7 +6,7 @@ const PY_REMOTE="https://cdn.jsdelivr.net/pyodide/v0.26.2/full/";
 const MONACO_PREFIX=new URL("__cdn__/monaco/",BASE).pathname;
 const MONACO_CACHE="n3xn-python-monaco-0520";
 const SHELL=["./","./index.html","./playground.html","./playground.css","./js/vfs.js","./js/monaco.js","./js/runtime.js","./js/runtime.worker.js","./js/audio.js","./js/playground.js","./js/singlefile.js","./templates/index.json","./templates/basics/hello.py","./templates/data/number-lab.py","./templates/data/csv-lab.py","./templates/data/sales.csv","./templates/graphics/clicker.py","./templates/graphics/mandelbrot.py","./templates/games/README.md","./templates/games/geometry_dash/main.py","./templates/games/geometry_dash/__init__.py","./templates/games/geometry_dash/config.py","./templates/games/geometry_dash/levels.py","./templates/games/geometry_dash/effects.py","./templates/games/geometry_dash/engine.py","./sw.js"];
-const CORE=["pyodide.js","pyodide.asm.js","pyodide.asm.wasm","pyodide-lock.json","python_stdlib.zip","pyodide_py.tar"];
+const CORE=["pyodide.js","pyodide.asm.js","pyodide.asm.wasm","pyodide-lock.json","python_stdlib.zip"];
 self.addEventListener("install",event=>event.waitUntil((async()=>{const cache=await caches.open(VERSION);await Promise.allSettled(SHELL.map(async path=>{const url=new URL(path,BASE).href;const res=await fetch(url);if(res.ok)await cache.put(url,res);}));await self.skipWaiting();})()));
 self.addEventListener("activate",event=>event.waitUntil((async()=>{const keys=await caches.keys();await Promise.all(keys.filter(k=>k.startsWith("n3xn-python-")&&k!==VERSION&&k!==PYODIDE_CACHE).map(k=>caches.delete(k)));await self.clients.claim();})()));
 async function pyodideFetch(request,url){

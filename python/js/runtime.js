@@ -52,4 +52,6 @@ export async function runConsole(code){
   });
 }
 export function sendCanvasClick(x,y){worker?.postMessage({type:"click",x,y});}
+export function sendFrame(dt){worker?.postMessage({type:"frame",dt});}
+export function sendKey(key,pressed){worker?.postMessage({type:"key",key,pressed});}
 export function stopRuntime(){if(activeReject)activeReject(new Error("Execution stopped by user."));handlers.done=null;handlers.runError=null;if(worker)worker.terminate();worker=null;readyPromise=null;emit("stopped",{});}

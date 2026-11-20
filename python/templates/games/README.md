@@ -2,7 +2,7 @@
 
 The Games category contains playable Python projects designed for the Pyodide worker and n3xn graphics bridge.
 
-## Geometry Run (Geometry Dash-style)
+## Geometry Dash — Python Studio Edition
 
 The first expanded game is a modular, original rhythm-platformer. Its gameplay is inspired by the one-button precision platformer genre; its title treatment, visuals, levels, and effects are original and styled for n3xn Python Studio.
 

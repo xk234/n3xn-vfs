@@ -7,7 +7,7 @@ const $=id=>document.getElementById(id);
 const BASE=new URL("../",import.meta.url).href;
 const status=$("runtime-status"),consoleOut=$("console-out"),fileList=$("file-list"),canvas=$("graphics-canvas"),ctx=canvas.getContext("2d");
 let files={},entry="/main.py",activeFile="",templates=[],editor=null,saveTimer=null,runStarted=0;
-let gameFrame=0,lastFrame=0,frameAccumulator=0,gameLoopActive=false,gameInputActive=false;
+let gameFrame=0,lastFrame=0,frameAccumulator=0,framePending=false,gameLoopActive=false,gameInputActive=false;
 function log(text,level="out"){
  const row=document.createElement("div");row.className="log "+level;row.textContent=String(text);consoleOut.appendChild(row);consoleOut.scrollTop=consoleOut.scrollHeight;
 }
@@ -56,23 +56,24 @@ function drawShape(msg){
 }
 function stopGameLoop(){
  if(gameFrame)cancelAnimationFrame(gameFrame);
- gameFrame=0;gameLoopActive=false;lastFrame=0;frameAccumulator=0;
+ gameFrame=0;gameLoopActive=false;lastFrame=0;frameAccumulator=0;framePending=false;
 }
 function startGameLoop(){
  if(gameLoopActive)return;
- gameLoopActive=true;lastFrame=0;frameAccumulator=0;
+ gameLoopActive=true;lastFrame=0;frameAccumulator=0;framePending=false;
  const tick=now=>{
   if(!gameLoopActive)return;
   if(!lastFrame)lastFrame=now;
   frameAccumulator+=Math.min((now-lastFrame)/1000,0.1);lastFrame=now;
   // Keep Python game callbacks to a predictable 30 FPS on low-power devices.
-  while(frameAccumulator>=1/30){sendFrame(1/30);frameAccumulator-=1/30;}
+  if(!framePending&&frameAccumulator>=1/30){const step=Math.min(frameAccumulator,0.1);frameAccumulator=0;framePending=true;sendFrame(step);}else if(framePending){frameAccumulator=Math.min(frameAccumulator,0.1);}
   gameFrame=requestAnimationFrame(tick);
  };
  gameFrame=requestAnimationFrame(tick);
 }
 setRuntimeHandlers({
  ready:msg=>{setStatus("Pyodide "+msg.version,"ready");log("CPython WebAssembly runtime ready.","ok");},
+ frameDone:()=>{framePending=false;},
  sound:msg=>playGameSound(msg.kind),
  stdout:msg=>log(msg.text,msg.level==="warn"?"warn":msg.level==="ok"?"ok":"out"),
  stderr:msg=>log(msg.text,"err"),

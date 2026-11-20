@@ -16,10 +16,10 @@ Project files in the template:
 
 ### Features
 
-- Three original levels with different colors, speeds, and obstacle density.
+- Three original levels with different colors, speeds, obstacle density, jump pads, and timed jump orbs.
 - Automatic forward movement and one-button jumping.
 - Jump buffering, coyote-time tolerance, sub-stepped physics, cube rotation.
-- Spikes and blocks, collision, death burst, particles, and trails.
+- Spikes and blocks, jump pads, jump orbs, collision, death burst, particles, and trails.
 - Progress percentage, attempts, per-level best progress.
 - Practice mode with automatic checkpoints.
 - Pause, restart, title screen, level selection, and completion flow.
@@ -50,7 +50,7 @@ on_key(key_event)
 on_click(lambda x, y: None)
 ```
 
-Drawing operations: `clear`, `rect`, `circle`, `line`, and `text`. The Python callback is invoked in a dedicated worker at a 30 FPS target. Keep per-frame work bounded and use batched drawing.
+Drawing operations: `clear`, `rect`, `circle`, `line`, and `text`. The Python callback is invoked in a dedicated worker at a 30 FPS target. Keep per-frame work bounded and use batched drawing. The `n3xn.play_sound(kind)` bridge triggers lightweight synthesized jump, pad, orb, checkpoint, crash, and completion effects after a user gesture unlocks audio.
 
 ## Roadmap
 

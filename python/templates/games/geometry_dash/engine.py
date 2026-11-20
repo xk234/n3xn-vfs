@@ -394,7 +394,7 @@ class GeometryGame:
             self._rect(ops, 90, 83, 460, 178, "#0b1728")
             self._rect(ops, 90, 83, 4, 178, VIOLET)
             self._text(ops, 126, 121, "n3xn / PYTHON STUDIO", CYAN)
-            self._text(ops, 126, 157, "GEOMETRY RUN", WHITE)
+            self._text(ops, 126, 157, "GEOMETRY DASH", WHITE)
             self._text(ops, 126, 181, "A precision platform game", MUTED)
             self._text(ops, 126, 218, "SPACE / CLICK  START", level_color)
             self._text(ops, 126, 241, "1-3 SELECT LEVEL   C PRACTICE", MUTED)

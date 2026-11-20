@@ -169,7 +169,7 @@ $("export-settings-form").onsubmit=async event=>{event.preventDefault();files[ac
 $("set-entry-btn").onclick=()=>{entry=activeFile;$("project-name").textContent=entry.split("/").pop();saveSoon();log("Run entry point set to "+entry,"ok");};
 $("packages-btn").onclick=()=>{
  $("dialog-title").textContent="Python packages";
- $("dialog-description").textContent="Install packages into this browser's Pyodide runtime. Popular Pyodide packages include numpy, pandas, matplotlib, scipy, pillow, sympy and scikit-learn. First install requires network access.";
+ $("dialog-description").textContent="Install packages into this browser's Pyodide runtime. Popular Pyodide packages include numpy, pandas, matplotlib, scipy, pillow, sympy, scikit-learn and pygame-ce. Type pygame or pygame-ce for browser Pygame support (the module is still imported as pygame). Other pure-Python or WebAssembly-compatible wheels can be installed through micropip; first install requires network access.";
  $("dialog-content").innerHTML='<input id="package-name" placeholder="Package name, e.g. numpy" autocomplete="off">';
  $("dialog-confirm").textContent="Install package";$("dialog").classList.remove("hidden");$("package-name").focus();
 };

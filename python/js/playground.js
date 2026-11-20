@@ -193,7 +193,7 @@ window.addEventListener("keydown",event=>{
  if(gameInputActive){
   unlockAudio();
   const key=event.key.toLowerCase();
-  if([" ","arrowup","w","r","p","c","escape","1","2","3"].includes(key)){event.preventDefault();sendKey(event.key,event.repeat?false:true);}
+  if([" ","arrowup","w","r","p","c","escape","1","2","3","h"].includes(key)){event.preventDefault();sendKey(event.key,event.repeat?false:true);}
  }
 });
 window.addEventListener("keyup",event=>{if(gameInputActive)sendKey(event.key,false);});

@@ -87,6 +87,11 @@ async function run(id,files,entry){
   releaseCallbacks();
   try{
     await syncFiles(files);
+    const pythonSources=Object.entries(files||{}).filter(([path,content])=>path.endsWith(".py")&&typeof content==="string").map(([,content])=>content).join("\n");
+    if(pythonSources&&typeof py.loadPackagesFromImports==="function"){
+      try{const loaded=await py.loadPackagesFromImports(pythonSources);if(loaded?.length)send("stdout",{text:"Auto-loaded Pyodide packages: "+loaded.join(", "),level:"system"});}
+      catch(error){send("stdout",{text:"Automatic package preloading skipped: "+(error.message||error),level:"warn"});}
+    }
     const clean=cleanProjectPath(entry||"/main.py"),full="/home/pyodide/project/"+clean;
     py.globals.set("_n3xn_entry",full);
     await py.runPythonAsync("import os, sys, runpy\nos.chdir(_n3xn_project_root)\nsys.path.insert(0, _n3xn_project_root)\nrunpy.run_path(_n3xn_entry, run_name='__main__')");
@@ -96,13 +101,23 @@ async function run(id,files,entry){
   }
 }
 async function install(id,name){
+  let pkg=String(name||"").trim();
   try{
-    const pkg=String(name||"").trim();
     if(!/^[A-Za-z0-9_.-]+$/.test(pkg))throw new Error("Use a package name such as numpy or requests.");
-    py.globals.set("_n3xn_pkg_name",pkg);
-    try{await py.loadPackage(pkg);}catch(_){await py.runPythonAsync("import micropip\nawait micropip.install(_n3xn_pkg_name)");}
-    py.globals.delete("_n3xn_pkg_name");send("packageDone",{id,name:pkg});
-  }catch(error){send("packageError",{id,name,message:error?.stack||String(error)});}
+    const aliases={pygame:"pygame-ce"};pkg=aliases[pkg.toLowerCase()]||pkg;
+    try{await py.loadPackage(pkg);}
+    catch(loadError){
+      await py.loadPackage("micropip");
+      py.globals.set("_n3xn_pkg_name",pkg);
+      try{await py.runPythonAsync("import micropip\\nawait micropip.install(_n3xn_pkg_name)");}
+      finally{py.globals.delete("_n3xn_pkg_name");}
+    }
+    send("packageDone",{id,name:pkg});
+  }catch(error){
+    const detail=error?.message||String(error);
+    const hint=/pygame-ce|pygame/i.test(pkg)?" In Pyodide, install pygame-ce (it provides the pygame import); desktop pygame wheels are not interchangeable.":" Pyodide can install pure-Python wheels and WebAssembly-compatible wheels, but not ordinary desktop/native wheels.";
+    send("packageError",{id,name:pkg,message:detail+hint});
+  }
 }
 function invoke(proxy,args){
   if(!proxy)return;

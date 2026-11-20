@@ -25,6 +25,9 @@ class GeometryGame:
         self.elapsed = 0.0
         self.checkpoints = []
         self.last_checkpoint = 0.0
+        for obj in self.objects:
+            if obj["kind"] in ("pad", "orb"):
+                obj["used"] = False
         self.death_timer = 0.0
         self.complete_timer = 0.0
         self.level = LEVELS[0]
@@ -128,6 +131,8 @@ class GeometryGame:
         # Slightly inset player box, as in the forgiving collision feel of rhythm platformers.
         left, right = PLAYER_X + 4, PLAYER_X + PLAYER_SIZE - 4
         top, bottom = py + 4, py + PLAYER_SIZE - 3
+        if obj["kind"] in ("pad", "orb"):
+            return False
         if obj["kind"] == "block":
             ox1, ox2 = sx + 3, sx + obj["w"] - 3
             oy = GROUND_Y - obj["h"] + 3
@@ -150,6 +155,21 @@ class GeometryGame:
         grounded = self.player_y >= GROUND_Y - PLAYER_SIZE - 0.5
         self.coyote = 0.085 if grounded else max(0.0, self.coyote - dt)
         self.jump_buffer = max(0.0, self.jump_buffer - dt)
+        # Orbs activate only when a jump press is timed near the ring.
+        if self.jump_buffer > 0:
+            for obj in self.objects:
+                if obj["kind"] != "orb" or obj["used"]:
+                    continue
+                ox = obj["x"] - self.distance + PLAYER_X + obj["w"] / 2
+                oy = obj["y"] + obj["h"] / 2
+                cx, cy = PLAYER_X + PLAYER_SIZE / 2, self.player_y + PLAYER_SIZE / 2
+                if abs(cx - ox) < 34 and abs(cy - oy) < 38:
+                    obj["used"] = True
+                    self.player_vy = -735.0
+                    self.jump_buffer = 0.0
+                    self.coyote = 0.0
+                    self.effects.burst(ox, oy, self.level["accent"], 18, 145)
+                    break
         if self.jump_buffer > 0 and self.coyote > 0:
             self.player_vy = JUMP_VELOCITY
             self.jump_buffer = 0.0
@@ -167,8 +187,19 @@ class GeometryGame:
 
         self.effects.trail(PLAYER_X + 2, self.player_y + PLAYER_SIZE - 3, self.level["color"])
         for obj in self.objects:
-            if obj["x"] - self.distance > PLAYER_X + 100:
+            if obj["x"] - self.distance > PLAYER_X + 110:
                 break
+            screen_x = obj["x"] - self.distance + PLAYER_X
+            if obj["kind"] == "pad" and not obj["used"]:
+                grounded_now = self.player_y >= GROUND_Y - PLAYER_SIZE - 0.5
+                if grounded_now and PLAYER_X + PLAYER_SIZE > screen_x and PLAYER_X < screen_x + obj["w"]:
+                    obj["used"] = True
+                    self.player_vy = -820.0
+                    self.player_y -= 2
+                    self.coyote = 0.0
+                    self.effects.burst(screen_x + obj["w"] / 2, GROUND_Y - 8, self.level["accent"], 16, 130)
+            if obj["kind"] in ("pad", "orb"):
+                continue
             if obj["x"] + obj["w"] - self.distance >= PLAYER_X and self._collision(obj):
                 self._die()
                 return
@@ -260,6 +291,17 @@ class GeometryGame:
                 continue
             if obj["kind"] == "spike":
                 self._spike(ops, sx, obj["h"], level_color)
+            elif obj["kind"] == "pad":
+                pad_color = "#334155" if obj["used"] else self.level["accent"]
+                self._rect(ops, sx, GROUND_Y - 8, obj["w"], 8, pad_color)
+                self._rect(ops, sx + 5, GROUND_Y - 12, obj["w"] - 10, 4, WHITE)
+                self._rect(ops, sx + 10, GROUND_Y - 16, obj["w"] - 20, 3, pad_color)
+            elif obj["kind"] == "orb":
+                orb_color = "#526174" if obj["used"] else self.level["accent"]
+                ox, oy = sx + obj["w"] // 2, obj["y"] + obj["h"] // 2
+                ops.append(("circle", ox, oy, 14, 0, orb_color, ""))
+                ops.append(("circle", ox, oy, 8, 0, BG, ""))
+                ops.append(("circle", ox, oy, 3, 0, WHITE, ""))
             else:
                 y = GROUND_Y - obj["h"]
                 self._rect(ops, sx, y, obj["w"], obj["h"], "#1c3550")

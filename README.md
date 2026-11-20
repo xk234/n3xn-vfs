@@ -456,7 +456,7 @@ Example:
 
 ## 🎮 Python game development
 
-The standalone **Python Studio** at `/python/` includes a dedicated **Games** category. Its featured project, **Geometry Run — Python Studio**, is a modular Geometry Dash-style precision platformer with three original levels, jump physics, spikes, blocks, jump pads, jump orbs, practice checkpoints, particles, synthesized sound effects, progress tracking, and a Python Studio-themed HUD.
+The standalone **Python Studio** at `/python/` includes a dedicated **Games** category. Its featured project, **Geometry Dash — Python Studio Edition**, is a modular Geometry Dash-style precision platformer with three original levels, jump physics, spikes, blocks, jump pads, jump orbs, practice checkpoints, particles, synthesized sound effects, progress tracking, and a Python Studio-themed HUD.
 
 The game is split into editable Python modules under `python/templates/games/geometry_dash/`: `main.py`, `config.py`, `levels.py`, `effects.py`, and `engine.py`. The shared runtime exposes frame, keyboard, mouse, batched drawing, and local sound callbacks. See [Python Games](python/templates/games/README.md) for controls and development notes.
 
